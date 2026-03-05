@@ -518,6 +518,30 @@ const SAMPLE_CAMPAIGNS = [
     isActive: true,
     deadline: BigInt((Date.now() + 20 * 24 * 60 * 60 * 1000) * 1_000_000),
   },
+  {
+    id: "sample-4",
+    title: "Rescue & Rehabilitate 1000 Street Dogs in Mumbai",
+    description:
+      "Feed, vaccinate and find loving homes for street dogs suffering on Mumbai's streets.",
+    category: "Animal Welfare",
+    currentAmount: 1200000n,
+    targetAmount: 3000000n,
+    imageIds: [] as string[],
+    isActive: true,
+    deadline: BigInt((Date.now() + 60 * 24 * 60 * 60 * 1000) * 1_000_000),
+  },
+  {
+    id: "sample-5",
+    title: "Plant 100,000 Trees to Fight Deforestation in Amazon",
+    description:
+      "Restore critical Amazon rainforest habitat by planting native tree species with local communities.",
+    category: "Environment",
+    currentAmount: 5500000n,
+    targetAmount: 8000000n,
+    imageIds: [] as string[],
+    isActive: true,
+    deadline: BigInt((Date.now() + 90 * 24 * 60 * 60 * 1000) * 1_000_000),
+  },
 ];
 
 type NavigateFn = ReturnType<typeof useNavigate>;
@@ -544,11 +568,16 @@ function SampleCampaignCard({
     Medical: "bg-red-100 text-red-700",
     Education: "bg-blue-100 text-blue-700",
     "Disaster Relief": "bg-orange-100 text-orange-700",
+    "Animal Welfare": "bg-green-100 text-green-700",
+    Environment: "bg-emerald-100 text-emerald-700",
   };
   const catImages: Record<string, string> = {
     Medical: "/assets/generated/campaign-medical.dim_600x400.jpg",
     Education: "/assets/generated/campaign-education.dim_600x400.jpg",
     "Disaster Relief": "/assets/generated/campaign-disaster.dim_600x400.jpg",
+    "Animal Welfare":
+      "/assets/generated/campaign-animal-welfare.dim_600x400.jpg",
+    Environment: "/assets/generated/campaign-environment.dim_600x400.jpg",
   };
 
   return (
@@ -610,10 +639,25 @@ function SampleCampaignCard({
               ? "856"
               : campaign.category === "Education"
                 ? "1,284"
-                : "2,143"}{" "}
+                : campaign.category === "Animal Welfare"
+                  ? "432"
+                  : campaign.category === "Environment"
+                    ? "1,876"
+                    : "2,143"}{" "}
             supporters
           </span>
-          <span>30 days left</span>
+          <span>
+            {campaign.category === "Medical"
+              ? "30"
+              : campaign.category === "Education"
+                ? "45"
+                : campaign.category === "Animal Welfare"
+                  ? "60"
+                  : campaign.category === "Environment"
+                    ? "90"
+                    : "20"}{" "}
+            days left
+          </span>
         </div>
 
         <Button

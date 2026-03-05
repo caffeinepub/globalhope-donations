@@ -283,3 +283,45 @@ export function useUploadImage() {
     },
   });
 }
+
+// ─── UPI QR Code ───────────────────────────────────────────
+
+export function useUpiQrCode() {
+  const { actor, isFetching } = useActor();
+  return useQuery<string | null>({
+    queryKey: ["upiQrCode"],
+    queryFn: async () => {
+      if (!actor) return null;
+      return actor.getUpiQrCode();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useSetUpiQrCode() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (imageId: string) => {
+      if (!actor) throw new Error("Not connected");
+      return actor.setUpiQrCode(imageId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["upiQrCode"] });
+    },
+  });
+}
+
+export function useClearUpiQrCode() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error("Not connected");
+      return actor.clearUpiQrCode();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["upiQrCode"] });
+    },
+  });
+}

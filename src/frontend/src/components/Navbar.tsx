@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { Heart, Menu, X } from "lucide-react";
+import { Heart, Menu, Shield, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
@@ -16,6 +16,8 @@ export default function Navbar() {
     { label: "About", href: "#about" },
     { label: "Contact", href: "#contact" },
   ];
+
+  const adminLink = { label: "Admin", href: "/admin" };
 
   const isActive = (href: string) => {
     if (href.startsWith("#")) return false;
@@ -68,6 +70,19 @@ export default function Navbar() {
                 {link.label}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => handleNav(adminLink.href)}
+              data-ocid="nav.admin_link"
+              className={`px-3 py-2 text-sm font-medium transition-colors rounded-md flex items-center gap-1.5 ${
+                isActive(adminLink.href)
+                  ? "text-orange-500 bg-orange-50 font-semibold"
+                  : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              <Shield className="w-3.5 h-3.5" />
+              {adminLink.label}
+            </button>
           </div>
 
           {/* Desktop CTA */}
@@ -122,11 +137,20 @@ export default function Navbar() {
                     {link.label}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => handleNav(adminLink.href)}
+                  data-ocid="nav.admin_link"
+                  className="w-full text-left block px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted"
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  Admin
+                </button>
                 <div className="pt-2 pb-1">
                   <Button
                     className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold"
                     onClick={() => handleNav("/campaigns")}
-                    data-ocid="nav.donate_button"
+                    data-ocid="nav.mobile_donate_button"
                   >
                     <Heart className="w-4 h-4 mr-2" />
                     Donate Now

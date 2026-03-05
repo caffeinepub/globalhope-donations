@@ -61,6 +61,7 @@ export default function Footer() {
               {[
                 { label: "Home", to: "/" as const },
                 { label: "All Campaigns", to: "/campaigns" as const },
+                { label: "Admin", to: "/admin" as const },
               ].map((link) => (
                 <li key={link.label}>
                   <button

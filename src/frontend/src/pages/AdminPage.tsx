@@ -4,18 +4,25 @@ import { Button } from "@/components/ui/button";
 import { useInternetIdentity } from "@/hooks/useInternetIdentity";
 import { useIsCallerAdmin } from "@/hooks/useQueries";
 import { useNavigate } from "@tanstack/react-router";
-import { Loader2, LogIn, Shield } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronRight,
+  Copy,
+  Loader2,
+  Shield,
+} from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 export default function AdminPage() {
-  const { login, loginStatus, identity, isInitializing } =
-    useInternetIdentity();
+  const { identity, isInitializing } = useInternetIdentity();
   const { data: isAdmin, isLoading: adminLoading } = useIsCallerAdmin();
   const navigate = useNavigate();
+  const [copied, setCopied] = useState(false);
 
-  const isLoggingIn = loginStatus === "logging-in";
   const isLoggedIn = !!identity;
+  const principalId = identity?.getPrincipal().toString();
 
   useEffect(() => {
     if (isAdmin === true) {
@@ -25,19 +32,52 @@ export default function AdminPage() {
 
   const isLoading = isInitializing || adminLoading;
 
+  const handleCopyPrincipal = () => {
+    if (principalId) {
+      navigator.clipboard.writeText(principalId);
+      setCopied(true);
+      toast.success("Principal ID copied to clipboard");
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const ACCESS_STEPS = [
+    {
+      step: "1",
+      title: "Login with Internet Identity",
+      desc: "Click the login button above to authenticate.",
+    },
+    {
+      step: "2",
+      title: "Copy your Principal ID",
+      desc: "After logging in, copy your Principal ID shown on screen.",
+    },
+    {
+      step: "3",
+      title: "Contact platform owner",
+      desc: "Share your Principal ID with the platform owner to get admin role assigned.",
+    },
+    {
+      step: "4",
+      title: "Refresh the page",
+      desc: "Once assigned, refresh this page to access the admin dashboard.",
+    },
+  ];
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
 
-      <main className="flex-1 flex items-center justify-center py-20 bg-background">
-        <div className="max-w-md w-full mx-auto px-4">
+      <main className="flex-1 py-16 bg-background">
+        <div className="max-w-lg w-full mx-auto px-4 space-y-6">
+          {/* Main login card */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-card rounded-2xl p-8 card-shadow text-center"
+            className="bg-card rounded-2xl p-8 card-shadow border border-border"
           >
             {isLoading ? (
-              <div className="space-y-4">
+              <div className="space-y-4 text-center">
                 <Loader2 className="w-12 h-12 text-orange-500 animate-spin mx-auto" />
                 <p className="text-muted-foreground">
                   Checking admin access...
@@ -48,66 +88,102 @@ export default function AdminPage() {
                 <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto">
                   <Shield className="w-8 h-8 text-red-400" />
                 </div>
-                <div>
+                <div className="text-center">
                   <h2 className="font-display text-2xl font-bold text-foreground mb-2">
                     Access Denied
                   </h2>
                   <p className="text-muted-foreground text-sm">
                     Your account does not have admin privileges. Contact the
-                    platform owner if you believe this is an error.
+                    platform owner with your Principal ID below.
                   </p>
                 </div>
-                <div className="text-xs text-muted-foreground bg-muted rounded-lg p-3">
-                  Principal:{" "}
-                  <span className="font-mono text-orange-600">
-                    {identity?.getPrincipal().toString().slice(0, 20)}...
-                  </span>
+
+                {/* Principal ID box */}
+                <div className="bg-muted rounded-xl p-4">
+                  <p className="text-xs text-muted-foreground mb-2 font-semibold uppercase tracking-wider">
+                    Your Principal ID
+                  </p>
+                  <div className="flex items-start gap-2">
+                    <code className="text-xs font-mono text-foreground break-all flex-1 leading-relaxed">
+                      {principalId}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleCopyPrincipal}
+                      className="shrink-0 h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                      data-ocid="admin.copy_principal_button"
+                    >
+                      {copied ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-6 text-center">
                 <div className="w-16 h-16 rounded-2xl orange-gradient flex items-center justify-center mx-auto">
                   <Shield className="w-8 h-8 text-white" />
                 </div>
 
                 <div>
                   <h2 className="font-display text-2xl font-bold text-foreground mb-2">
-                    Admin Portal
+                    Admin Access
                   </h2>
                   <p className="text-muted-foreground text-sm">
-                    Log in with your Internet Identity to access the admin
-                    dashboard.
+                    Contact the platform owner to get admin access assigned to
+                    your account.
                   </p>
-                </div>
-
-                <Button
-                  onClick={login}
-                  disabled={isLoggingIn}
-                  className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold h-12 shadow-donate"
-                  data-ocid="admin.login_button"
-                >
-                  {isLoggingIn ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    <>
-                      <LogIn className="w-5 h-5 mr-2" />
-                      Login with Internet Identity
-                    </>
-                  )}
-                </Button>
-
-                <div className="flex items-start gap-2 text-xs text-muted-foreground bg-orange-50 rounded-lg p-3 text-left">
-                  <Shield className="w-3.5 h-3.5 text-orange-400 mt-0.5 shrink-0" />
-                  <span>
-                    Internet Identity provides secure, privacy-preserving
-                    authentication without passwords.
-                  </span>
                 </div>
               </div>
             )}
+          </motion.div>
+
+          {/* How to get admin access */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="bg-card rounded-2xl p-6 card-shadow border border-border"
+            data-ocid="admin.access_info_card"
+          >
+            <h3 className="font-display font-bold text-base text-foreground mb-4 flex items-center gap-2">
+              <Shield className="w-4 h-4 text-orange-500" />
+              How to Get Admin Access
+            </h3>
+            <div className="space-y-3">
+              {ACCESS_STEPS.map((item) => (
+                <div key={item.step} className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                    {item.step}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {item.title}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {item.desc}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-border">
+              <Button
+                onClick={() => navigate({ to: "/admin/dashboard" })}
+                variant="ghost"
+                size="sm"
+                className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 w-full justify-between"
+                data-ocid="admin.dashboard_link"
+              >
+                <span>Already have access? Go to Dashboard</span>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
           </motion.div>
         </div>
       </main>

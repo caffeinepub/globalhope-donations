@@ -237,6 +237,7 @@ export interface backendInterface {
     _caffeineStorageUpdateGatewayPrincipals(): Promise<void>;
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    clearUpiQrCode(): Promise<void>;
     createCampaign(input: CampaignInput): Promise<CampaignId>;
     createCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
     deleteCampaign(campaignId: CampaignId): Promise<void>;
@@ -258,11 +259,13 @@ export interface backendInterface {
     getImageBlob(id: string): Promise<ExternalBlob | null>;
     getImageMetadata(id: string): Promise<ImageMetadata | null>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
+    getUpiQrCode(): Promise<string | null>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     isStripeConfigured(): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setStripeConfiguration(config: StripeConfiguration): Promise<void>;
+    setUpiQrCode(imageId: string): Promise<void>;
     submitDonation(input: DonationInput): Promise<DonationId>;
     toggleCampaignStatus(campaignId: CampaignId): Promise<void>;
     transform(input: TransformationInput): Promise<TransformationOutput>;
@@ -381,6 +384,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n8(this._uploadFile, this._downloadFile, arg1));
+            return result;
+        }
+    }
+    async clearUpiQrCode(): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.clearUpiQrCode();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.clearUpiQrCode();
             return result;
         }
     }
@@ -686,6 +703,20 @@ export class Backend implements backendInterface {
             return from_candid_StripeSessionStatus_n25(this._uploadFile, this._downloadFile, result);
         }
     }
+    async getUpiQrCode(): Promise<string | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getUpiQrCode();
+                return from_candid_opt_n28(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getUpiQrCode();
+            return from_candid_opt_n28(this._uploadFile, this._downloadFile, result);
+        }
+    }
     async getUserProfile(arg0: Principal): Promise<UserProfile | null> {
         if (this.processError) {
             try {
@@ -753,6 +784,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.setStripeConfiguration(arg0);
+            return result;
+        }
+    }
+    async setUpiQrCode(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.setUpiQrCode(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.setUpiQrCode(arg0);
             return result;
         }
     }

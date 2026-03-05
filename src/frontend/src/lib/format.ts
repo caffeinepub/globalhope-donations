@@ -55,6 +55,25 @@ export function formatCompact(n: number | bigint): string {
   return num.toString();
 }
 
+export const CURRENCIES = [
+  "USD",
+  "EUR",
+  "INR",
+  "GBP",
+  "AED",
+  "CAD",
+  "AUD",
+  "SGD",
+  "JPY",
+  "MYR",
+  "NGN",
+  "ZAR",
+  "BDT",
+  "PKR",
+] as const;
+
+export type Currency = (typeof CURRENCIES)[number];
+
 /** Get currency symbol */
 export function getCurrencySymbol(currency: string): string {
   const symbols: Record<string, string> = {
@@ -65,6 +84,13 @@ export function getCurrencySymbol(currency: string): string {
     AED: "د.إ",
     CAD: "C$",
     AUD: "A$",
+    SGD: "S$",
+    JPY: "¥",
+    MYR: "RM",
+    NGN: "₦",
+    ZAR: "R",
+    BDT: "৳",
+    PKR: "₨",
   };
   return symbols[currency] ?? currency;
 }

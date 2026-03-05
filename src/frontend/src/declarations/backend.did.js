@@ -160,6 +160,7 @@ export const idlService = IDL.Service({
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'clearUpiQrCode' : IDL.Func([], [], []),
   'createCampaign' : IDL.Func([CampaignInput], [CampaignId], []),
   'createCheckoutSession' : IDL.Func(
       [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
@@ -205,6 +206,7 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
+  'getUpiQrCode' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
@@ -214,6 +216,7 @@ export const idlService = IDL.Service({
   'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
+  'setUpiQrCode' : IDL.Func([IDL.Text], [], []),
   'submitDonation' : IDL.Func([DonationInput], [DonationId], []),
   'toggleCampaignStatus' : IDL.Func([CampaignId], [], []),
   'transform' : IDL.Func(
@@ -381,6 +384,7 @@ export const idlFactory = ({ IDL }) => {
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'clearUpiQrCode' : IDL.Func([], [], []),
     'createCampaign' : IDL.Func([CampaignInput], [CampaignId], []),
     'createCheckoutSession' : IDL.Func(
         [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
@@ -430,6 +434,7 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
+    'getUpiQrCode' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
@@ -439,6 +444,7 @@ export const idlFactory = ({ IDL }) => {
     'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
+    'setUpiQrCode' : IDL.Func([IDL.Text], [], []),
     'submitDonation' : IDL.Func([DonationInput], [DonationId], []),
     'toggleCampaignStatus' : IDL.Func([CampaignId], [], []),
     'transform' : IDL.Func(

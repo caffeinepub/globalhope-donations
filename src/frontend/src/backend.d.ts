@@ -144,6 +144,7 @@ export enum UserRole {
 }
 export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    clearUpiQrCode(): Promise<void>;
     createCampaign(input: CampaignInput): Promise<CampaignId>;
     createCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
     deleteCampaign(campaignId: CampaignId): Promise<void>;
@@ -165,11 +166,13 @@ export interface backendInterface {
     getImageBlob(id: string): Promise<ExternalBlob | null>;
     getImageMetadata(id: string): Promise<ImageMetadata | null>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
+    getUpiQrCode(): Promise<string | null>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     isStripeConfigured(): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setStripeConfiguration(config: StripeConfiguration): Promise<void>;
+    setUpiQrCode(imageId: string): Promise<void>;
     submitDonation(input: DonationInput): Promise<DonationId>;
     toggleCampaignStatus(campaignId: CampaignId): Promise<void>;
     transform(input: TransformationInput): Promise<TransformationOutput>;

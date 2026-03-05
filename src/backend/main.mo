@@ -17,6 +17,8 @@ import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
 import MixinStorage "blob-storage/Mixin";
 
+
+
 actor {
   // Include prefabricated components
   let accessControlState = AccessControl.initState();
@@ -288,6 +290,10 @@ actor {
   };
 
   public shared ({ caller }) func submitDonation(input : DonationInput) : async DonationId {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can submit donations");
+    };
+
     let campaign = switch (campaigns.get(input.campaignId)) {
       case (null) { Runtime.trap("Invalid campaign ID") };
       case (?c) { c };
@@ -447,5 +453,26 @@ actor {
   public query func getImageArrival() : async Blob {
     let input : Blob = "\08";
     Blob.fromArray(input.toArray());
+  };
+
+  // UPI QR code
+  var upiQrImageId : ?Text = null;
+
+  public shared ({ caller }) func setUpiQrCode(imageId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
+    upiQrImageId := ?imageId;
+  };
+
+  public query func getUpiQrCode() : async ?Text {
+    upiQrImageId;
+  };
+
+  public shared ({ caller }) func clearUpiQrCode() : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
+    upiQrImageId := null;
   };
 };
