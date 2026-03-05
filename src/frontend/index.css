@@ -1,0 +1,184 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Fonts ─────────────────────────────────────────────── */
+@font-face {
+  font-family: "Cabinet Grotesk";
+  src: url("/assets/fonts/CabinetGrotesk-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fraunces";
+  src: url("/assets/fonts/Fraunces-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/assets/fonts/PlusJakartaSans-Variable.woff2") format("woff2");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ─── Design Tokens ──────────────────────────────────────── */
+@layer base {
+  :root {
+    --radius: 0.75rem;
+
+    /* Primary orange - warm, vibrant, trustworthy */
+    --primary: 0.68 0.19 46;
+    --primary-foreground: 1 0 0;
+
+    /* Backgrounds */
+    --background: 0.985 0.003 80;
+    --foreground: 0.18 0.02 250;
+
+    /* Card */
+    --card: 1 0 0;
+    --card-foreground: 0.18 0.02 250;
+
+    /* Popover */
+    --popover: 1 0 0;
+    --popover-foreground: 0.18 0.02 250;
+
+    /* Secondary - warm gray */
+    --secondary: 0.95 0.008 80;
+    --secondary-foreground: 0.35 0.02 250;
+
+    /* Muted */
+    --muted: 0.94 0.008 80;
+    --muted-foreground: 0.52 0.015 250;
+
+    /* Accent - light warm orange */
+    --accent: 0.96 0.025 55;
+    --accent-foreground: 0.55 0.15 46;
+
+    /* Destructive */
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
+
+    /* Border/Input */
+    --border: 0.88 0.01 80;
+    --input: 0.88 0.01 80;
+    --ring: 0.68 0.19 46;
+
+    /* Success */
+    --success: 0.62 0.17 150;
+    --success-foreground: 0.98 0 0;
+
+    /* Charts */
+    --chart-1: 0.68 0.19 46;
+    --chart-2: 0.62 0.17 150;
+    --chart-3: 0.55 0.20 260;
+    --chart-4: 0.75 0.16 84;
+    --chart-5: 0.65 0.22 30;
+
+    /* Sidebar */
+    --sidebar: 0.18 0.02 250;
+    --sidebar-foreground: 0.985 0 0;
+    --sidebar-primary: 0.68 0.19 46;
+    --sidebar-primary-foreground: 1 0 0;
+    --sidebar-accent: 0.25 0.025 250;
+    --sidebar-accent-foreground: 0.85 0.01 250;
+    --sidebar-border: 0.28 0.025 250;
+    --sidebar-ring: 0.68 0.19 46;
+
+    /* Custom shadow */
+    --shadow-card: 0 4px 24px -4px oklch(0.18 0.02 250 / 0.08), 0 2px 8px -2px oklch(0.18 0.02 250 / 0.06);
+    --shadow-donate: 0 8px 32px -8px oklch(0.68 0.19 46 / 0.35);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", "Cabinet Grotesk", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "Cabinet Grotesk", sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+}
+
+/* ─── Utilities ──────────────────────────────────────────── */
+@layer utilities {
+  .font-display {
+    font-family: "Fraunces", serif;
+  }
+  .font-sans-cab {
+    font-family: "Cabinet Grotesk", sans-serif;
+  }
+
+  .card-shadow {
+    box-shadow: var(--shadow-card);
+  }
+  .donate-shadow {
+    box-shadow: var(--shadow-donate);
+  }
+
+  .progress-bar {
+    @apply h-2 rounded-full bg-muted overflow-hidden;
+  }
+  .progress-fill {
+    @apply h-full rounded-full transition-all duration-700 ease-out;
+    background: linear-gradient(90deg, oklch(0.68 0.19 46), oklch(0.72 0.21 55));
+  }
+
+  .campaign-img {
+    @apply w-full h-48 object-cover rounded-t-lg;
+  }
+
+  .orange-gradient {
+    background: linear-gradient(135deg, oklch(0.68 0.19 46), oklch(0.72 0.21 55));
+  }
+
+  .hero-overlay {
+    background: linear-gradient(
+      to right,
+      oklch(0.12 0.03 250 / 0.85) 0%,
+      oklch(0.12 0.03 250 / 0.5) 60%,
+      oklch(0.12 0.03 250 / 0.1) 100%
+    );
+  }
+
+  .section-wave {
+    clip-path: polygon(0 0, 100% 0, 100% 88%, 0 100%);
+  }
+}
+
+/* ─── Animations ─────────────────────────────────────────── */
+@keyframes confetti-fall {
+  0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+.confetti-piece {
+  animation: confetti-fall linear forwards;
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-count-up {
+  animation: count-up 0.5s ease-out forwards;
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 oklch(0.68 0.19 46 / 0.4); }
+  70% { box-shadow: 0 0 0 12px oklch(0.68 0.19 46 / 0); }
+  100% { box-shadow: 0 0 0 0 oklch(0.68 0.19 46 / 0); }
+}
+.pulse-ring {
+  animation: pulse-ring 2s ease-out infinite;
+}
