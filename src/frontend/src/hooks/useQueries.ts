@@ -5,6 +5,7 @@ import type {
   CampaignStats,
   Donation,
   DonationInput,
+  LegalPage,
   ShoppingItem,
 } from "../backend.d";
 import { useActor } from "./useActor";
@@ -322,6 +323,47 @@ export function useClearUpiQrCode() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["upiQrCode"] });
+    },
+  });
+}
+
+// ─── Legal Pages ───────────────────────────────────────────
+
+export function useGetLegalPage(id: string) {
+  const { actor, isFetching } = useActor();
+  return useQuery<LegalPage | null>({
+    queryKey: ["legalPage", id],
+    queryFn: async () => {
+      if (!actor) return null;
+      return actor.getLegalPage(id);
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useGetAllLegalPages() {
+  const { actor, isFetching } = useActor();
+  return useQuery<LegalPage[]>({
+    queryKey: ["legalPages"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAllLegalPages();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useSaveLegalPage() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, content }: { id: string; content: string }) => {
+      if (!actor) throw new Error("Not connected");
+      return actor.saveLegalPage(id, content);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["legalPage", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["legalPages"] });
     },
   });
 }

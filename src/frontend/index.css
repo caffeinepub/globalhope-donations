@@ -157,6 +157,60 @@
   }
 }
 
+/* ─── Legal Page Prose ───────────────────────────────────── */
+.prose-legal {
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: oklch(var(--foreground) / 0.85);
+}
+
+.prose-legal p {
+  margin-bottom: 0.875rem;
+}
+
+.prose-legal strong {
+  color: oklch(var(--foreground));
+  font-weight: 600;
+}
+
+.prose-legal a {
+  color: oklch(0.6 0.18 46);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.prose-legal a:hover {
+  color: oklch(0.55 0.2 46);
+}
+
+.prose-legal ul, .prose-legal ol {
+  margin-bottom: 0.875rem;
+  padding-left: 1.5rem;
+}
+
+.prose-legal li {
+  margin-bottom: 0.375rem;
+}
+
+.prose-legal h2 {
+  font-family: "Cabinet Grotesk", sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: oklch(0.6 0.18 46);
+  margin-top: 2rem;
+  margin-bottom: 0.875rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid oklch(0.6 0.18 46 / 0.15);
+}
+
+.prose-legal h3 {
+  font-family: "Cabinet Grotesk", sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
 /* ─── Animations ─────────────────────────────────────────── */
 @keyframes confetti-fall {
   0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }

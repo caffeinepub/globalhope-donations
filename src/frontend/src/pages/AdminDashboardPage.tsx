@@ -24,13 +24,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import {
   useAllCampaigns,
   useAllDonations,
   useClearUpiQrCode,
   useDeleteCampaign,
   useDonationStats,
+  useGetLegalPage,
   useImageBlob,
+  useSaveLegalPage,
   useSetUpiQrCode,
   useToggleCampaignStatus,
   useUpiQrCode,
@@ -42,6 +45,7 @@ import {
   AlertCircle,
   DollarSign,
   Edit,
+  FileText,
   Heart,
   ImagePlus,
   Loader2,
@@ -614,7 +618,7 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* ─── Main Tabs: Campaigns / Donations / Messages / Users ─── */}
+        {/* ─── Main Tabs: Campaigns / Donations / Messages / Users / Legal ─── */}
         <Tabs defaultValue="campaigns" className="space-y-0">
           <TabsList className="h-auto p-1 bg-muted rounded-xl flex-wrap gap-1 mb-6">
             <TabsTrigger
@@ -668,6 +672,14 @@ export default function AdminDashboardPage() {
                   {donors.length}
                 </Badge>
               )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="legal"
+              className="rounded-lg font-semibold"
+              data-ocid="admin.legal.tab"
+            >
+              <FileText className="w-4 h-4 mr-1.5" />
+              Legal Pages
             </TabsTrigger>
           </TabsList>
 
@@ -1189,7 +1201,174 @@ export default function AdminDashboardPage() {
               )}
             </div>
           </TabsContent>
+
+          {/* ─── Legal Pages Tab ─── */}
+          <TabsContent value="legal">
+            <LegalPagesTab />
+          </TabsContent>
         </Tabs>
+      </div>
+    </div>
+  );
+}
+
+// ─── Legal Pages Editor ────────────────────────────────────
+
+const LEGAL_PAGES = [
+  { id: "privacy", label: "Privacy Policy" },
+  { id: "terms", label: "Terms of Service" },
+  { id: "cookies", label: "Cookie Policy" },
+  { id: "donor-privacy", label: "Donor Privacy" },
+] as const;
+
+type LegalPageId = (typeof LEGAL_PAGES)[number]["id"];
+
+function LegalPageEditor({ id, label }: { id: LegalPageId; label: string }) {
+  const { data: legalPage, isLoading } = useGetLegalPage(id);
+  const { mutateAsync: savePage, isPending: isSaving } = useSaveLegalPage();
+  const [draft, setDraft] = useState("");
+  const [initialised, setInitialised] = useState(false);
+
+  // Populate draft when data arrives
+  useEffect(() => {
+    if (!initialised && legalPage !== undefined) {
+      setDraft(legalPage?.content ?? "");
+      setInitialised(true);
+    }
+  }, [legalPage, initialised]);
+
+  const handleSave = async () => {
+    try {
+      await savePage({ id, content: draft });
+      toast.success(`${label} saved`);
+    } catch {
+      toast.error(`Failed to save ${label}`);
+    }
+  };
+
+  const handleClear = () => {
+    setDraft("");
+  };
+
+  return (
+    <div
+      className="space-y-3"
+      data-ocid={`admin.legal.${id.replace(/-/g, "_")}.panel`}
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-semibold text-foreground">{label}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Enter HTML or plain text. Leave empty to show the default built-in
+            content.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {draft && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleClear}
+              className="text-muted-foreground hover:text-foreground text-xs"
+              data-ocid={`admin.legal.${id.replace(/-/g, "_")}.secondary_button`}
+            >
+              Clear (use default)
+            </Button>
+          )}
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={isSaving || isLoading}
+            className="bg-orange-500 hover:bg-orange-600 text-white font-semibold"
+            data-ocid={`admin.legal.${id.replace(/-/g, "_")}.save_button`}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-3.5 h-3.5 mr-1.5" />
+                Save
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <Skeleton
+          className="w-full"
+          style={{ height: 200 }}
+          data-ocid={`admin.legal.${id.replace(/-/g, "_")}.loading_state`}
+        />
+      ) : (
+        <Textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={`Enter custom HTML content for the ${label} page. Leave empty to use the built-in default content.`}
+          className="min-h-[300px] font-mono text-xs leading-relaxed resize-y"
+          data-ocid={`admin.legal.${id.replace(/-/g, "_")}.textarea`}
+        />
+      )}
+
+      {isSaving && (
+        <div
+          className="flex items-center gap-2 text-xs text-orange-600"
+          data-ocid={`admin.legal.${id.replace(/-/g, "_")}.loading_state`}
+        >
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          Saving to blockchain...
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LegalPagesTab() {
+  const [activeId, setActiveId] = useState<LegalPageId>("privacy");
+
+  return (
+    <div className="bg-card rounded-xl card-shadow overflow-hidden">
+      <div className="px-6 py-4 border-b border-border flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+          <FileText className="w-4 h-4 text-orange-500" />
+        </div>
+        <div>
+          <h2 className="font-display font-bold text-lg">Legal Pages</h2>
+          <p className="text-xs text-muted-foreground">
+            Customise legal page content. Leave empty to use built-in defaults.
+          </p>
+        </div>
+      </div>
+
+      <div className="p-6">
+        {/* Sub-tab buttons */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          {LEGAL_PAGES.map((page) => (
+            <button
+              key={page.id}
+              type="button"
+              onClick={() => setActiveId(page.id)}
+              data-ocid={`admin.legal.${page.id.replace(/-/g, "_")}.tab`}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                activeId === page.id
+                  ? "bg-orange-500 text-white shadow-sm"
+                  : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+              }`}
+            >
+              {page.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Editor for active page */}
+        {LEGAL_PAGES.map((page) =>
+          activeId === page.id ? (
+            <LegalPageEditor key={page.id} id={page.id} label={page.label} />
+          ) : null,
+        )}
       </div>
     </div>
   );

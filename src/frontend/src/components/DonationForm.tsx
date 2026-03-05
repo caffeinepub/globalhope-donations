@@ -9,13 +9,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useCurrency } from "@/context/CurrencyContext";
 import {
   useCreateCheckoutSession,
   useImageBlob,
   useSubmitDonation,
   useUpiQrCode,
 } from "@/hooks/useQueries";
-import { CURRENCIES, getCurrencySymbol } from "@/lib/format";
+import { getCurrencySymbol } from "@/lib/format";
 import {
   AlertCircle,
   CheckCircle2,
@@ -34,15 +35,37 @@ interface Props {
   campaign: Campaign;
 }
 
+// Narrowed list per spec
+const SUPPORTED_CURRENCIES = [
+  "USD",
+  "EUR",
+  "INR",
+  "GBP",
+  "AED",
+  "CAD",
+  "AUD",
+  "JPY",
+  "SGD",
+] as const;
+
 const PRESET_AMOUNTS_USD = [10, 25, 50, 100, 250];
 
 type PaymentTab = "card" | "upi";
 
 export default function DonationForm({ campaign }: Props) {
+  const { detectedCurrency, convertToUSD } = useCurrency();
+
   const [paymentTab, setPaymentTab] = useState<PaymentTab>("card");
   const [selectedPreset, setSelectedPreset] = useState<number | null>(50);
   const [customAmount, setCustomAmount] = useState("");
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState(() => {
+    // Initialize from detected currency, but only if supported
+    return (SUPPORTED_CURRENCIES as readonly string[]).includes(
+      detectedCurrency,
+    )
+      ? detectedCurrency
+      : "USD";
+  });
   const [donorName, setDonorName] = useState("");
   const [donorEmail, setDonorEmail] = useState("");
   const [donorPhone, setDonorPhone] = useState("");
@@ -63,6 +86,10 @@ export default function DonationForm({ campaign }: Props) {
     : selectedPreset || 0;
 
   const currencySymbol = getCurrencySymbol(currency);
+
+  // Compute USD equivalent for preview + storage
+  const amountInUSD =
+    effectiveAmount > 0 ? convertToUSD(effectiveAmount, currency) : 0;
 
   const handlePresetClick = (amount: number) => {
     setSelectedPreset(amount);
@@ -93,6 +120,7 @@ export default function DonationForm({ campaign }: Props) {
 
     try {
       const priceInCents = BigInt(Math.round(effectiveAmount * 100));
+      const amountUSDCents = BigInt(Math.round(amountInUSD * 100));
       const origin = window.location.origin;
 
       const params = new URLSearchParams({
@@ -103,6 +131,7 @@ export default function DonationForm({ campaign }: Props) {
         donorPhone: donorPhone,
         isAnonymous: isAnonymous.toString(),
         amount: priceInCents.toString(),
+        amountUSD: amountUSDCents.toString(),
       });
 
       const successUrl = `${origin}/donate/success?session_id={CHECKOUT_SESSION_ID}&${params.toString()}`;
@@ -147,9 +176,11 @@ export default function DonationForm({ campaign }: Props) {
 
     try {
       const priceInCents = BigInt(Math.round(effectiveAmount * 100));
+      const amountUSDCents = BigInt(Math.round(amountInUSD * 100));
       await submitDonation({
         campaignId: campaign.id,
         amount: priceInCents,
+        amountUSD: amountUSDCents,
         currency,
         donorName: isAnonymous ? "Anonymous" : donorName,
         donorEmail: isAnonymous ? "" : donorEmail,
@@ -261,7 +292,7 @@ export default function DonationForm({ campaign }: Props) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="max-h-64 overflow-y-auto">
-              {CURRENCIES.map((c) => (
+              {SUPPORTED_CURRENCIES.map((c) => (
                 <SelectItem key={c} value={c}>
                   {getCurrencySymbol(c)} {c}
                 </SelectItem>
@@ -466,7 +497,7 @@ export default function DonationForm({ campaign }: Props) {
 
         {/* Amount preview */}
         {effectiveAmount > 0 && (
-          <div className="p-3 rounded-lg bg-orange-50 border border-orange-100">
+          <div className="p-3 rounded-lg bg-orange-50 border border-orange-100 space-y-1">
             <div className="flex justify-between items-center">
               <span className="text-sm font-medium text-orange-700">
                 Your donation:
@@ -476,6 +507,14 @@ export default function DonationForm({ campaign }: Props) {
                 {effectiveAmount.toFixed(0)} {currency}
               </span>
             </div>
+            {/* USD conversion preview for non-USD currencies */}
+            {currency !== "USD" && amountInUSD > 0 && (
+              <div className="flex justify-end">
+                <span className="text-xs text-orange-500 font-medium">
+                  ~${amountInUSD.toFixed(2)} USD
+                </span>
+              </div>
+            )}
           </div>
         )}
 
@@ -532,6 +571,18 @@ export default function DonationForm({ campaign }: Props) {
               : "Your donation is recorded securely"}
           </span>
         </div>
+
+        {/* GDPR notice */}
+        <p className="text-xs text-muted-foreground text-center">
+          Your data is processed in accordance with our{" "}
+          <a
+            href="/legal/privacy"
+            className="text-orange-600 hover:text-orange-700 underline underline-offset-2"
+          >
+            Privacy Policy
+          </a>
+          .
+        </p>
 
         {/* Payment logos (card only) */}
         {paymentTab === "card" && (

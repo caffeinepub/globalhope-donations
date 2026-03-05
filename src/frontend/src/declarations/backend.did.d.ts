@@ -46,6 +46,7 @@ export interface Donation {
   'isAnonymous' : boolean,
   'campaignId' : CampaignId,
   'currency' : string,
+  'amountUSD' : bigint,
   'donorEmail' : string,
   'amount' : bigint,
   'transactionId' : string,
@@ -58,6 +59,7 @@ export interface DonationInput {
   'isAnonymous' : boolean,
   'campaignId' : CampaignId,
   'currency' : string,
+  'amountUSD' : bigint,
   'donorEmail' : string,
   'amount' : bigint,
 }
@@ -69,6 +71,11 @@ export interface ImageMetadata {
   'blob' : ExternalBlob,
   'size' : bigint,
   'uploadTime' : bigint,
+}
+export interface LegalPage {
+  'id' : string,
+  'content' : string,
+  'updatedAt' : bigint,
 }
 export type PaymentMethod = {
     'stripe' : { 'status' : string, 'sessionId' : string }
@@ -153,6 +160,7 @@ export interface _SERVICE {
   'getAllCampaigns' : ActorMethod<[], Array<Campaign>>,
   'getAllDonations' : ActorMethod<[], Array<Donation>>,
   'getAllImageMetadata' : ActorMethod<[], Array<ImageMetadata>>,
+  'getAllLegalPages' : ActorMethod<[], Array<LegalPage>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getCampaign' : ActorMethod<[CampaignId], [] | [Campaign]>,
@@ -166,12 +174,14 @@ export interface _SERVICE {
   'getImageArrival' : ActorMethod<[], Uint8Array>,
   'getImageBlob' : ActorMethod<[string], [] | [ExternalBlob]>,
   'getImageMetadata' : ActorMethod<[string], [] | [ImageMetadata]>,
+  'getLegalPage' : ActorMethod<[string], [] | [LegalPage]>,
   'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,
   'getUpiQrCode' : ActorMethod<[], [] | [string]>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isStripeConfigured' : ActorMethod<[], boolean>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'saveLegalPage' : ActorMethod<[string, string], undefined>,
   'setStripeConfiguration' : ActorMethod<[StripeConfiguration], undefined>,
   'setUpiQrCode' : ActorMethod<[string], undefined>,
   'submitDonation' : ActorMethod<[DonationInput], DonationId>,

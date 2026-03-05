@@ -59,6 +59,7 @@ export default function DonateSuccessPage() {
   const donorPhone = urlParams.get("donorPhone") ?? "";
   const isAnonymous = urlParams.get("isAnonymous") === "true";
   const amountStr = urlParams.get("amount") ?? "0";
+  const amountUSDStr = urlParams.get("amountUSD") ?? amountStr;
 
   const [donationSubmitted, setDonationSubmitted] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -93,6 +94,7 @@ export default function DonateSuccessPage() {
             donorEmail: isAnonymous ? "" : donorEmail,
             donorPhone,
             amount: BigInt(amountStr),
+            amountUSD: BigInt(amountUSDStr),
             currency,
             isAnonymous,
             paymentMethod: {
@@ -124,6 +126,7 @@ export default function DonateSuccessPage() {
     donorEmail,
     donorPhone,
     amountStr,
+    amountUSDStr,
     currency,
     isAnonymous,
   ]);

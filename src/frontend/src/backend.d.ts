@@ -14,10 +14,13 @@ export class ExternalBlob {
     static fromBytes(blob: Uint8Array<ArrayBuffer>): ExternalBlob;
     withUploadProgress(onProgress: (percentage: number) => void): ExternalBlob;
 }
-export interface UserProfile {
-    name: string;
-    email: string;
-    phone: string;
+export interface ImageMetadata {
+    id: string;
+    originalName: string;
+    contentType: string;
+    blob: ExternalBlob;
+    size: bigint;
+    uploadTime: bigint;
 }
 export interface TransformationOutput {
     status: bigint;
@@ -61,6 +64,11 @@ export interface http_request_result {
     body: Uint8Array;
     headers: Array<http_header>;
 }
+export interface LegalPage {
+    id: string;
+    content: string;
+    updatedAt: bigint;
+}
 export interface DonationInput {
     donorPhone: string;
     paymentMethod: PaymentMethod;
@@ -68,6 +76,7 @@ export interface DonationInput {
     isAnonymous: boolean;
     campaignId: CampaignId;
     currency: string;
+    amountUSD: bigint;
     donorEmail: string;
     amount: bigint;
 }
@@ -80,6 +89,7 @@ export interface Donation {
     isAnonymous: boolean;
     campaignId: CampaignId;
     currency: string;
+    amountUSD: bigint;
     donorEmail: string;
     amount: bigint;
     transactionId: string;
@@ -129,13 +139,10 @@ export interface StripeConfiguration {
     secretKey: string;
 }
 export type DonationId = string;
-export interface ImageMetadata {
-    id: string;
-    originalName: string;
-    contentType: string;
-    blob: ExternalBlob;
-    size: bigint;
-    uploadTime: bigint;
+export interface UserProfile {
+    name: string;
+    email: string;
+    phone: string;
 }
 export enum UserRole {
     admin = "admin",
@@ -152,6 +159,7 @@ export interface backendInterface {
     getAllCampaigns(): Promise<Array<Campaign>>;
     getAllDonations(): Promise<Array<Donation>>;
     getAllImageMetadata(): Promise<Array<ImageMetadata>>;
+    getAllLegalPages(): Promise<Array<LegalPage>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getCampaign(campaignId: CampaignId): Promise<Campaign | null>;
@@ -165,12 +173,14 @@ export interface backendInterface {
     getImageArrival(): Promise<Uint8Array>;
     getImageBlob(id: string): Promise<ExternalBlob | null>;
     getImageMetadata(id: string): Promise<ImageMetadata | null>;
+    getLegalPage(id: string): Promise<LegalPage | null>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
     getUpiQrCode(): Promise<string | null>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     isStripeConfigured(): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    saveLegalPage(id: string, content: string): Promise<void>;
     setStripeConfiguration(config: StripeConfiguration): Promise<void>;
     setUpiQrCode(imageId: string): Promise<void>;
     submitDonation(input: DonationInput): Promise<DonationId>;

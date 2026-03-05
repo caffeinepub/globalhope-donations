@@ -1,24 +1,24 @@
-import Iter "mo:core/Iter";
 import Map "mo:core/Map";
 import Set "mo:core/Set";
+import Iter "mo:core/Iter";
 import Array "mo:core/Array";
 import Runtime "mo:core/Runtime";
 import Principal "mo:core/Principal";
 import Text "mo:core/Text";
 import OutCall "http-outcalls/outcall";
 import Stripe "stripe/stripe";
-import Order "mo:core/Order";
 import Nat "mo:core/Nat";
 import Time "mo:core/Time";
-import Int "mo:core/Int";
 import Blob "mo:core/Blob";
 import Storage "blob-storage/Storage";
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
 import MixinStorage "blob-storage/Mixin";
+import Migration "migration";
+import Int "mo:core/Int";
+import Order "mo:core/Order";
 
-
-
+(with migration = Migration.run)
 actor {
   // Include prefabricated components
   let accessControlState = AccessControl.initState();
@@ -60,6 +60,7 @@ actor {
     transactionId : Text;
     isAnonymous : Bool;
     createdAt : Int;
+    amountUSD : Nat; // Amount in USD cents
   };
 
   public type CampaignStats = {
@@ -86,6 +87,7 @@ actor {
     currency : Text;
     paymentMethod : PaymentMethod;
     isAnonymous : Bool;
+    amountUSD : Nat; // Amount in USD cents
   };
 
   public type ImageMetadata = {
@@ -101,6 +103,12 @@ actor {
     name : Text;
     email : Text;
     phone : Text;
+  };
+
+  public type LegalPage = {
+    id : Text;
+    content : Text;
+    updatedAt : Int;
   };
 
   // Helper functions
@@ -122,7 +130,7 @@ actor {
   let userProfiles = Map.empty<Principal, UserProfile>();
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Unauthorized: Only users can access profiles");
     };
     userProfiles.get(caller);
@@ -136,7 +144,7 @@ actor {
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Unauthorized: Only users can save profiles");
     };
     userProfiles.add(caller, profile);
@@ -145,13 +153,14 @@ actor {
   // Campaign management
   let campaigns = Map.empty<CampaignId, Campaign>();
   var lastCampaignId = 100000;
+
   func generateCampaignId() : CampaignId {
     lastCampaignId += 1;
     lastCampaignId.toText();
   };
 
   public shared ({ caller }) func createCampaign(input : CampaignInput) : async CampaignId {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
 
@@ -223,7 +232,7 @@ actor {
   };
 
   public shared ({ caller }) func updateCampaign(campaignId : CampaignId, input : CampaignInput) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
 
@@ -249,14 +258,14 @@ actor {
   };
 
   public shared ({ caller }) func deleteCampaign(campaignId : CampaignId) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     campaigns.remove(campaignId);
   };
 
   public shared ({ caller }) func toggleCampaignStatus(campaignId : CampaignId) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
 
@@ -284,17 +293,18 @@ actor {
   // Donation management
   let donations = Map.empty<DonationId, Donation>();
   var lastDonationId = 800000;
+
   func generateDonationId() : DonationId {
     lastDonationId += 1;
     lastDonationId.toText();
   };
 
   public shared ({ caller }) func submitDonation(input : DonationInput) : async DonationId {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Unauthorized: Only users can submit donations");
     };
 
-    let campaign = switch (campaigns.get(input.campaignId)) {
+    let _campaign = switch (campaigns.get(input.campaignId)) {
       case (null) { Runtime.trap("Invalid campaign ID") };
       case (?c) { c };
     };
@@ -312,10 +322,11 @@ actor {
       transactionId = generateTransactionId();
       isAnonymous = input.isAnonymous;
       createdAt = Time.now();
+      amountUSD = input.amountUSD;
     };
 
     donations.add(id, donation);
-    updateCampaignAmount(campaign.id, input.amount);
+    updateCampaignAmount(input.campaignId, input.amount);
     id;
   };
 
@@ -347,14 +358,14 @@ actor {
   };
 
   public query ({ caller }) func getAllDonations() : async [Donation] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     donations.values().toArray();
   };
 
   public query ({ caller }) func getCampaignDonations(campaignId : CampaignId) : async [Donation] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     let allDonations = donations.values().toArray();
@@ -374,7 +385,7 @@ actor {
   };
 
   public query ({ caller }) func getDonationsByCampaign(campaignId : CampaignId) : async [Donation] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     let all = donations.values().toArray();
@@ -391,7 +402,7 @@ actor {
   };
 
   public shared ({ caller }) func setStripeConfiguration(config : Stripe.StripeConfiguration) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     stripeConfig := ?config;
@@ -415,7 +426,7 @@ actor {
   // Image storage
   let imageMetadata = Map.empty<Text, ImageMetadata>();
   public shared ({ caller }) func uploadImage(id : Text, contentType : Text, originalName : Text, size : Nat, blob : Storage.ExternalBlob) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     imageMetadata.add(
@@ -459,7 +470,7 @@ actor {
   var upiQrImageId : ?Text = null;
 
   public shared ({ caller }) func setUpiQrCode(imageId : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     upiQrImageId := ?imageId;
@@ -470,9 +481,34 @@ actor {
   };
 
   public shared ({ caller }) func clearUpiQrCode() : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     upiQrImageId := null;
+  };
+
+  // Legal pages management
+  let legalPages = Map.empty<Text, LegalPage>();
+
+  public shared ({ caller }) func saveLegalPage(id : Text, content : Text) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
+
+    let page : LegalPage = {
+      id;
+      content;
+      updatedAt = Time.now();
+    };
+
+    legalPages.add(id, page);
+  };
+
+  public query func getLegalPage(id : Text) : async ?LegalPage {
+    legalPages.get(id);
+  };
+
+  public query func getAllLegalPages() : async [LegalPage] {
+    legalPages.values().toArray();
   };
 };

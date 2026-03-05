@@ -69,6 +69,7 @@ export const Donation = IDL.Record({
   'isAnonymous' : IDL.Bool,
   'campaignId' : CampaignId,
   'currency' : IDL.Text,
+  'amountUSD' : IDL.Nat,
   'donorEmail' : IDL.Text,
   'amount' : IDL.Nat,
   'transactionId' : IDL.Text,
@@ -81,6 +82,11 @@ export const ImageMetadata = IDL.Record({
   'blob' : ExternalBlob,
   'size' : IDL.Nat,
   'uploadTime' : IDL.Int,
+});
+export const LegalPage = IDL.Record({
+  'id' : IDL.Text,
+  'content' : IDL.Text,
+  'updatedAt' : IDL.Int,
 });
 export const UserProfile = IDL.Record({
   'name' : IDL.Text,
@@ -109,6 +115,7 @@ export const DonationInput = IDL.Record({
   'isAnonymous' : IDL.Bool,
   'campaignId' : CampaignId,
   'currency' : IDL.Text,
+  'amountUSD' : IDL.Nat,
   'donorEmail' : IDL.Text,
   'amount' : IDL.Nat,
 });
@@ -172,6 +179,7 @@ export const idlService = IDL.Service({
   'getAllCampaigns' : IDL.Func([], [IDL.Vec(Campaign)], ['query']),
   'getAllDonations' : IDL.Func([], [IDL.Vec(Donation)], ['query']),
   'getAllImageMetadata' : IDL.Func([], [IDL.Vec(ImageMetadata)], ['query']),
+  'getAllLegalPages' : IDL.Func([], [IDL.Vec(LegalPage)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getCampaign' : IDL.Func([CampaignId], [IDL.Opt(Campaign)], ['query']),
@@ -205,6 +213,7 @@ export const idlService = IDL.Service({
       [IDL.Opt(ImageMetadata)],
       ['query'],
     ),
+  'getLegalPage' : IDL.Func([IDL.Text], [IDL.Opt(LegalPage)], ['query']),
   'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
   'getUpiQrCode' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
   'getUserProfile' : IDL.Func(
@@ -215,6 +224,7 @@ export const idlService = IDL.Service({
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'saveLegalPage' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
   'setUpiQrCode' : IDL.Func([IDL.Text], [], []),
   'submitDonation' : IDL.Func([DonationInput], [DonationId], []),
@@ -296,6 +306,7 @@ export const idlFactory = ({ IDL }) => {
     'isAnonymous' : IDL.Bool,
     'campaignId' : CampaignId,
     'currency' : IDL.Text,
+    'amountUSD' : IDL.Nat,
     'donorEmail' : IDL.Text,
     'amount' : IDL.Nat,
     'transactionId' : IDL.Text,
@@ -308,6 +319,11 @@ export const idlFactory = ({ IDL }) => {
     'blob' : ExternalBlob,
     'size' : IDL.Nat,
     'uploadTime' : IDL.Int,
+  });
+  const LegalPage = IDL.Record({
+    'id' : IDL.Text,
+    'content' : IDL.Text,
+    'updatedAt' : IDL.Int,
   });
   const UserProfile = IDL.Record({
     'name' : IDL.Text,
@@ -336,6 +352,7 @@ export const idlFactory = ({ IDL }) => {
     'isAnonymous' : IDL.Bool,
     'campaignId' : CampaignId,
     'currency' : IDL.Text,
+    'amountUSD' : IDL.Nat,
     'donorEmail' : IDL.Text,
     'amount' : IDL.Nat,
   });
@@ -396,6 +413,7 @@ export const idlFactory = ({ IDL }) => {
     'getAllCampaigns' : IDL.Func([], [IDL.Vec(Campaign)], ['query']),
     'getAllDonations' : IDL.Func([], [IDL.Vec(Donation)], ['query']),
     'getAllImageMetadata' : IDL.Func([], [IDL.Vec(ImageMetadata)], ['query']),
+    'getAllLegalPages' : IDL.Func([], [IDL.Vec(LegalPage)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getCampaign' : IDL.Func([CampaignId], [IDL.Opt(Campaign)], ['query']),
@@ -433,6 +451,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Opt(ImageMetadata)],
         ['query'],
       ),
+    'getLegalPage' : IDL.Func([IDL.Text], [IDL.Opt(LegalPage)], ['query']),
     'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
     'getUpiQrCode' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
     'getUserProfile' : IDL.Func(
@@ -443,6 +462,7 @@ export const idlFactory = ({ IDL }) => {
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'saveLegalPage' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
     'setUpiQrCode' : IDL.Func([IDL.Text], [], []),
     'submitDonation' : IDL.Func([DonationInput], [DonationId], []),

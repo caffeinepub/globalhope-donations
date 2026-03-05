@@ -2,7 +2,15 @@ import { useNavigate } from "@tanstack/react-router";
 import { Heart, Mail, MapPin, Phone } from "lucide-react";
 import { SiFacebook, SiInstagram, SiLinkedin, SiX } from "react-icons/si";
 
-type ValidRoute = "/" | "/campaigns" | "/contact" | "/donate-history";
+type ValidRoute =
+  | "/"
+  | "/campaigns"
+  | "/contact"
+  | "/donate-history"
+  | "/legal/privacy"
+  | "/legal/terms"
+  | "/legal/cookies"
+  | "/legal/donor-privacy";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -89,18 +97,31 @@ export default function Footer() {
             </h3>
             <ul className="space-y-3">
               {[
-                "Privacy Policy",
-                "Terms of Service",
-                "Cookie Policy",
-                "Donor Privacy",
+                {
+                  label: "Privacy Policy",
+                  to: "/legal/privacy" as ValidRoute,
+                },
+                {
+                  label: "Terms of Service",
+                  to: "/legal/terms" as ValidRoute,
+                },
+                {
+                  label: "Cookie Policy",
+                  to: "/legal/cookies" as ValidRoute,
+                },
+                {
+                  label: "Donor Privacy",
+                  to: "/legal/donor-privacy" as ValidRoute,
+                },
               ].map((item) => (
-                <li key={item}>
+                <li key={item.label}>
                   <button
                     type="button"
-                    onClick={() => {}}
+                    onClick={() => navigate({ to: item.to })}
                     className="text-sm text-white/60 hover:text-orange-400 transition-colors"
+                    data-ocid={`footer.${item.label.toLowerCase().replace(/ /g, "_")}.link`}
                   >
-                    {item}
+                    {item.label}
                   </button>
                 </li>
               ))}
