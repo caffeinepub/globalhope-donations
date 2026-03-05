@@ -12,7 +12,9 @@ import AdminDashboardPage from "./pages/AdminDashboardPage";
 import AdminPage from "./pages/AdminPage";
 import CampaignDetailPage from "./pages/CampaignDetailPage";
 import CampaignsPage from "./pages/CampaignsPage";
+import ContactPage from "./pages/ContactPage";
 import DonateCancelPage from "./pages/DonateCancelPage";
+import DonateHistoryPage from "./pages/DonateHistoryPage";
 import DonateSuccessPage from "./pages/DonateSuccessPage";
 import HomePage from "./pages/HomePage";
 
@@ -82,6 +84,18 @@ const adminCampaignEditRoute = createRoute({
   component: AdminCampaignFormPage,
 });
 
+const contactRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/contact",
+  component: ContactPage,
+});
+
+const donateHistoryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/donate-history",
+  component: DonateHistoryPage,
+});
+
 // Export routes for usage in pages
 export { campaignDetailRoute, adminCampaignEditRoute };
 
@@ -96,6 +110,8 @@ const routeTree = rootRoute.addChildren([
   adminDashboardRoute,
   adminCampaignNewRoute,
   adminCampaignEditRoute,
+  contactRoute,
+  donateHistoryRoute,
 ]);
 
 // Create the router

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { Heart, Menu, Shield, X } from "lucide-react";
+import { Heart, History, Menu, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
@@ -13,25 +13,15 @@ export default function Navbar() {
   const navLinks = [
     { label: "Home", href: "/" },
     { label: "Campaigns", href: "/campaigns" },
-    { label: "About", href: "#about" },
-    { label: "Contact", href: "#contact" },
+    { label: "Contact", href: "/contact" },
+    { label: "Donate History", href: "/donate-history" },
   ];
 
-  const adminLink = { label: "Admin", href: "/admin" };
-
-  const isActive = (href: string) => {
-    if (href.startsWith("#")) return false;
-    return pathname === href;
-  };
+  const isActive = (href: string) => pathname === href;
 
   const handleNav = (href: string) => {
     setMobileOpen(false);
-    if (href.startsWith("#")) {
-      const el = document.querySelector(href);
-      el?.scrollIntoView({ behavior: "smooth" });
-    } else {
-      navigate({ to: href as "/" });
-    }
+    navigate({ to: href as "/" });
   };
 
   return (
@@ -60,29 +50,19 @@ export default function Navbar() {
                 type="button"
                 key={link.href}
                 onClick={() => handleNav(link.href)}
-                data-ocid={`nav.${link.label.toLowerCase()}_link`}
-                className={`px-3 py-2 text-sm font-medium transition-colors rounded-md ${
+                data-ocid={`nav.${link.label.toLowerCase().replace(/\s+/g, "_")}_link`}
+                className={`px-3 py-2 text-sm font-medium transition-colors rounded-md flex items-center gap-1.5 ${
                   isActive(link.href)
                     ? "text-orange-500 bg-orange-50 font-semibold"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
               >
+                {link.label === "Donate History" && (
+                  <History className="w-3.5 h-3.5" />
+                )}
                 {link.label}
               </button>
             ))}
-            <button
-              type="button"
-              onClick={() => handleNav(adminLink.href)}
-              data-ocid="nav.admin_link"
-              className={`px-3 py-2 text-sm font-medium transition-colors rounded-md flex items-center gap-1.5 ${
-                isActive(adminLink.href)
-                  ? "text-orange-500 bg-orange-50 font-semibold"
-                  : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              <Shield className="w-3.5 h-3.5" />
-              {adminLink.label}
-            </button>
           </div>
 
           {/* Desktop CTA */}
@@ -128,6 +108,7 @@ export default function Navbar() {
                     type="button"
                     key={link.href}
                     onClick={() => handleNav(link.href)}
+                    data-ocid={`nav.mobile.${link.label.toLowerCase().replace(/\s+/g, "_")}_link`}
                     className={`w-full text-left block px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                       isActive(link.href)
                         ? "text-orange-500 bg-orange-50 font-semibold"
@@ -137,15 +118,6 @@ export default function Navbar() {
                     {link.label}
                   </button>
                 ))}
-                <button
-                  type="button"
-                  onClick={() => handleNav(adminLink.href)}
-                  data-ocid="nav.admin_link"
-                  className="w-full text-left block px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted"
-                >
-                  <Shield className="w-3.5 h-3.5" />
-                  Admin
-                </button>
                 <div className="pt-2 pb-1">
                   <Button
                     className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold"

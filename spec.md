@@ -1,45 +1,41 @@
 # GlobalHope Donations
 
 ## Current State
-New project. No existing code.
+- Full-stack charity donation platform with campaign management
+- Admin access uses Internet Identity (ICP's cryptographic auth) — no username/password
+- Public pages: Home, Campaigns, Campaign Detail, Donate Success/Cancel
+- Admin pages: /admin (Internet Identity login info), /admin/dashboard (campaigns + donations management)
+- Backend: Motoko with authorization, blob-storage, Stripe, http-outcalls components
+- No standalone Contact page or Donate History page for public users
 
 ## Requested Changes (Diff)
 
 ### Add
-- Full-stack charity fundraising platform with admin and donor flows
-- Campaign management: create, edit, delete campaigns with title, description, category, target amount, deadline, media (images + video URLs)
-- Donation flow: predefined + custom amounts, multi-currency selector (USD, EUR, INR, GBP, AED, CAD, AUD), anonymous option, donor name/email/phone fields
-- Stripe payment integration for international cards
-- Admin panel: secure login, dashboard with stats, campaign CRUD, donation list view, total collected amount
-- Homepage: hero section, featured campaigns with progress bars, supporters count, impact breakdown, campaign gallery, contact section, footer
-- Campaign detail page: full info, live progress bar, supporter count, media gallery, donation form
-- Payment success/thank-you page
-- Role-based access: admin vs. donor/visitor
-- Blob storage for campaign images
+- **Admin email/password login**: Replace Internet Identity flow on /admin with a hardcoded credential check (email: ankitasingh.ltd@gmail.com, password: Ankitasingh7860@@). Store session in localStorage. Redirect to /admin/dashboard on success.
+- **Admin logout**: Clear localStorage session and redirect to /admin login page
+- **Contact page** (/contact): Public contact form with name, email, phone, message fields. Submissions stored in backend and viewable in admin dashboard.
+- **Donate History page** (/donate-history): Public page where a user enters their email to look up their own past donations across all campaigns.
+- **Admin: Messages/Contact section**: New tab/section in admin dashboard showing all submitted contact form messages with ability to mark read/delete.
+- **Admin: Users section**: Tab showing all unique donor emails + names from donation records.
 
 ### Modify
-- N/A (new project)
+- **AdminPage (/admin)**: Replace Internet Identity login with a simple email + password form. On submit, check credentials against hardcoded values. Show error on wrong credentials. On success store `admin_authenticated=true` and `admin_email` in localStorage, redirect to /admin/dashboard.
+- **AdminDashboardPage**: Replace Internet Identity identity check with localStorage session check. Logout clears localStorage and redirects to /admin.
+- **Navbar**: Add "Contact" link in public nav. Remove any "Admin" nav link (admin accessed directly via /admin URL).
+- **Backend (main.mo)**: Add `ContactMessage` type and storage, `submitContactMessage` (public), `getAllContactMessages` (admin), `deleteContactMessage` (admin), `getDonationsByEmail` (public query by email for donate history).
 
 ### Remove
-- N/A (new project)
+- Internet Identity login button and Principal ID flow from /admin page
+- "How to Get Admin Access" info card from /admin page
+- "Go to Admin" button / admin notice banners (already done in v3)
 
 ## Implementation Plan
-
-**Backend (Motoko)**
-1. User/auth model: admin role via authorization component
-2. Campaign record: id, title, description, imageIds[], videoUrls[], targetAmount (Nat), currentAmount (Nat), category, deadline, createdAt, active flag
-3. Donation record: id, campaignId, donorName, donorEmail, donorPhone, amount, currency, paymentMethod, transactionId, anonymous, createdAt
-4. Campaign CRUD APIs (admin only for create/update/delete, public read)
-5. Donation submission API (public)
-6. Stats query: total raised, supporter count per campaign
-7. Stripe payment intent creation via component
-
-**Frontend (React + Tailwind)**
-1. Layout: top nav (logo + nav links + donate CTA), footer
-2. Homepage: hero, campaign cards grid with progress bars, impact section, contact form
-3. Campaign detail page: left panel (info, progress, gallery), right panel (donation form card)
-4. Donation form: amount selector, currency dropdown, donor fields, anonymous toggle, Stripe payment
-5. Payment success page with thank-you message
-6. Admin dashboard: login gate, stats overview cards, campaigns table (CRUD), donations table
-7. Campaign create/edit form with image upload and video URL field
-8. Mobile-responsive throughout
+1. Update backend: add ContactMessage type, submitContactMessage, getAllContactMessages, deleteContactMessage, getDonationsByEmail
+2. Replace AdminPage with email/password login form using hardcoded credentials + localStorage session
+3. Update AdminDashboardPage: replace II check with localStorage auth check; update logout to clear localStorage
+4. Add ContactPage (/contact) with form
+5. Add DonateHistoryPage (/donate-history) with email lookup
+6. Add admin Messages section in dashboard showing contact submissions
+7. Add admin Users section showing unique donors
+8. Update App.tsx routes to include /contact and /donate-history
+9. Update Navbar: add Contact link, remove Admin link

@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useInternetIdentity } from "@/hooks/useInternetIdentity";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useAllCampaigns,
   useAllDonations,
@@ -31,7 +31,6 @@ import {
   useDeleteCampaign,
   useDonationStats,
   useImageBlob,
-  useIsCallerAdmin,
   useSetUpiQrCode,
   useToggleCampaignStatus,
   useUpiQrCode,
@@ -47,6 +46,9 @@ import {
   ImagePlus,
   Loader2,
   LogOut,
+  Mail,
+  MessageSquare,
+  Phone,
   Plus,
   QrCode,
   Save,
@@ -55,7 +57,6 @@ import {
   ToggleRight,
   Trash2,
   TrendingUp,
-  Upload,
   Users,
   X,
 } from "lucide-react";
@@ -64,10 +65,32 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ExternalBlob } from "../backend";
 
+// ─── Contact Message type ──────────────────────────────────
+interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+  createdAt: string;
+  isRead: boolean;
+}
+
+// ─── Helpers ───────────────────────────────────────────────
+function loadMessages(): ContactMessage[] {
+  try {
+    return JSON.parse(localStorage.getItem("contact_messages") ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveMessages(msgs: ContactMessage[]) {
+  localStorage.setItem("contact_messages", JSON.stringify(msgs));
+}
+
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
-  const { clear, identity } = useInternetIdentity();
-  const { data: isAdmin, isLoading: adminLoading } = useIsCallerAdmin();
   const { data: campaigns, isLoading: campaignsLoading } = useAllCampaigns();
   const { data: donations, isLoading: donationsLoading } = useAllDonations();
   const { data: stats, isLoading: statsLoading } = useDonationStats();
@@ -95,11 +118,25 @@ export default function AdminDashboardPage() {
   const [upiIdDraft, setUpiIdDraft] = useState(upiId);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Contact messages state
+  const [messages, setMessages] = useState<ContactMessage[]>(() =>
+    loadMessages(),
+  );
+
+  // Auth guard using localStorage
   useEffect(() => {
-    if (!adminLoading && isAdmin === false) {
+    if (localStorage.getItem("admin_authenticated") !== "true") {
       navigate({ to: "/admin" });
     }
-  }, [isAdmin, adminLoading, navigate]);
+  }, [navigate]);
+
+  const adminEmail = localStorage.getItem("admin_email") || "Admin";
+
+  const handleLogout = () => {
+    localStorage.removeItem("admin_authenticated");
+    localStorage.removeItem("admin_email");
+    navigate({ to: "/admin" });
+  };
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
@@ -161,7 +198,6 @@ export default function AdminDashboardPage() {
       setUploadProgress(0);
     }
 
-    // Reset file input
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -180,6 +216,64 @@ export default function AdminDashboardPage() {
     setEditingUpiId(false);
     toast.success("UPI ID saved");
   };
+
+  // Messages handlers
+  const handleMarkRead = (id: string) => {
+    const updated = messages.map((m) =>
+      m.id === id ? { ...m, isRead: true } : m,
+    );
+    setMessages(updated);
+    saveMessages(updated);
+    toast.success("Message marked as read");
+  };
+
+  const handleDeleteMessage = (id: string) => {
+    const updated = messages.filter((m) => m.id !== id);
+    setMessages(updated);
+    saveMessages(updated);
+    toast.success("Message deleted");
+  };
+
+  // Users/Donors computed from donations
+  interface DonorSummary {
+    name: string;
+    email: string;
+    phone: string;
+    totalDonated: bigint;
+    donationCount: number;
+    lastDonation: bigint;
+  }
+
+  const donorMap = new Map<string, DonorSummary>();
+  if (donations) {
+    for (const d of donations) {
+      const key = d.isAnonymous
+        ? `anon-${d.id}`
+        : d.donorEmail || `nomail-${d.id}`;
+      const existing = donorMap.get(key);
+      if (existing) {
+        existing.totalDonated += d.amount;
+        existing.donationCount += 1;
+        if (d.createdAt > existing.lastDonation) {
+          existing.lastDonation = d.createdAt;
+        }
+      } else {
+        donorMap.set(key, {
+          name: d.isAnonymous ? "Anonymous" : d.donorName,
+          email: d.isAnonymous ? "—" : d.donorEmail,
+          phone: d.isAnonymous ? "—" : d.donorPhone,
+          totalDonated: d.amount,
+          donationCount: 1,
+          lastDonation: d.createdAt,
+        });
+      }
+    }
+  }
+  const donors = Array.from(donorMap.values()).sort((a, b) =>
+    Number(b.totalDonated - a.totalDonated),
+  );
+
+  const unreadCount = messages.filter((m) => !m.isRead).length;
 
   const [totalRaised, totalDonations, totalCampaigns] = stats ?? [0n, 0n, 0n];
 
@@ -214,14 +308,6 @@ export default function AdminDashboardPage() {
     },
   ];
 
-  if (adminLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background">
       {/* Admin Header */}
@@ -235,8 +321,8 @@ export default function AdminDashboardPage() {
               <h1 className="font-display font-bold text-lg leading-none">
                 GlobalHope <span className="text-orange-400">Admin</span>
               </h1>
-              <p className="text-xs text-white/50 mt-0.5">
-                {identity?.getPrincipal().toString().slice(0, 20)}...
+              <p className="text-xs text-white/50 mt-0.5 max-w-[200px] truncate">
+                {adminEmail}
               </p>
             </div>
           </div>
@@ -252,11 +338,9 @@ export default function AdminDashboardPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                clear();
-                navigate({ to: "/admin" });
-              }}
+              onClick={handleLogout}
               className="text-white/70 hover:text-white hover:bg-white/10"
+              data-ocid="admin.logout_button"
             >
               <LogOut className="w-4 h-4 mr-1.5" />
               Sign Out
@@ -327,7 +411,6 @@ export default function AdminDashboardPage() {
                   UPI QR Code Image
                 </Label>
 
-                {/* Current QR preview */}
                 {upiQrImageId && upiQrUrl ? (
                   <div className="relative w-fit">
                     <img
@@ -371,7 +454,6 @@ export default function AdminDashboardPage() {
                   </button>
                 )}
 
-                {/* Upload progress */}
                 {uploadProgress > 0 && uploadProgress < 100 && (
                   <div
                     className="space-y-1"
@@ -385,7 +467,6 @@ export default function AdminDashboardPage() {
                   </div>
                 )}
 
-                {/* Upload button */}
                 <div>
                   <input
                     ref={fileInputRef}
@@ -424,13 +505,13 @@ export default function AdminDashboardPage() {
                         variant="ghost"
                         size="sm"
                         className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        data-ocid="admin.upi.remove_qr_button"
+                        data-ocid="admin.upi.remove_qr_open_modal_button"
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
                         Remove QR Code
                       </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent data-ocid="admin.upi.remove_qr_dialog">
+                    <AlertDialogContent data-ocid="admin.upi.remove_qr.dialog">
                       <AlertDialogHeader>
                         <AlertDialogTitle>Remove UPI QR Code?</AlertDialogTitle>
                         <AlertDialogDescription>
@@ -439,13 +520,13 @@ export default function AdminDashboardPage() {
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel data-ocid="admin.upi.remove_qr_cancel_button">
+                        <AlertDialogCancel data-ocid="admin.upi.remove_qr.cancel_button">
                           Cancel
                         </AlertDialogCancel>
                         <AlertDialogAction
                           onClick={handleClearQr}
                           className="bg-destructive hover:bg-destructive/90"
-                          data-ocid="admin.upi.remove_qr_confirm_button"
+                          data-ocid="admin.upi.remove_qr.confirm_button"
                         >
                           Remove
                         </AlertDialogAction>
@@ -533,260 +614,582 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Campaigns table */}
-        <div className="bg-card rounded-xl card-shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-            <h2 className="font-display font-bold text-lg">Campaigns</h2>
-            <span className="text-sm text-muted-foreground">
-              {campaigns?.length ?? 0} total
-            </span>
-          </div>
+        {/* ─── Main Tabs: Campaigns / Donations / Messages / Users ─── */}
+        <Tabs defaultValue="campaigns" className="space-y-0">
+          <TabsList className="h-auto p-1 bg-muted rounded-xl flex-wrap gap-1 mb-6">
+            <TabsTrigger
+              value="campaigns"
+              className="rounded-lg font-semibold"
+              data-ocid="admin.campaigns.tab"
+            >
+              <Target className="w-4 h-4 mr-1.5" />
+              Campaigns
+              {campaigns && (
+                <Badge variant="secondary" className="ml-2 text-xs font-normal">
+                  {campaigns.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="donations"
+              className="rounded-lg font-semibold"
+              data-ocid="admin.donations.tab"
+            >
+              <TrendingUp className="w-4 h-4 mr-1.5" />
+              Donations
+              {donations && (
+                <Badge variant="secondary" className="ml-2 text-xs font-normal">
+                  {donations.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="messages"
+              className="rounded-lg font-semibold"
+              data-ocid="admin.messages.tab"
+            >
+              <MessageSquare className="w-4 h-4 mr-1.5" />
+              Messages
+              {unreadCount > 0 && (
+                <Badge className="ml-2 text-xs font-normal bg-orange-500 text-white">
+                  {unreadCount}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="users"
+              className="rounded-lg font-semibold"
+              data-ocid="admin.users.tab"
+            >
+              <Users className="w-4 h-4 mr-1.5" />
+              Users / Donors
+              {donors.length > 0 && (
+                <Badge variant="secondary" className="ml-2 text-xs font-normal">
+                  {donors.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
-          {campaignsLoading ? (
-            <div className="p-6 space-y-3">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : (campaigns?.length ?? 0) === 0 ? (
-            <div className="p-12 text-center" data-ocid="admin.campaigns_table">
-              <p className="text-muted-foreground">No campaigns yet.</p>
-              <Button
-                onClick={() => navigate({ to: "/admin/campaigns/new" })}
-                className="mt-4 bg-orange-500 hover:bg-orange-600 text-white"
-              >
-                Create First Campaign
-              </Button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table data-ocid="admin.campaigns_table">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Raised</TableHead>
-                    <TableHead>Target</TableHead>
-                    <TableHead>Deadline</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {campaigns?.map((campaign, i) => {
-                    const cat = getCategoryInfo(campaign.category);
-                    return (
-                      <TableRow
-                        key={campaign.id}
-                        data-ocid={`admin.campaigns.row.${i + 1}`}
-                      >
-                        <TableCell className="font-medium max-w-[200px]">
-                          <span className="line-clamp-1 text-sm">
-                            {campaign.title}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cat.color}`}
+          {/* ─── Campaigns Tab ─── */}
+          <TabsContent value="campaigns">
+            <div className="bg-card rounded-xl card-shadow overflow-hidden">
+              <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+                <h2 className="font-display font-bold text-lg">Campaigns</h2>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground">
+                    {campaigns?.length ?? 0} total
+                  </span>
+                  <Button
+                    size="sm"
+                    onClick={() => navigate({ to: "/admin/campaigns/new" })}
+                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-1.5" />
+                    New
+                  </Button>
+                </div>
+              </div>
+
+              {campaignsLoading ? (
+                <div className="p-6 space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : (campaigns?.length ?? 0) === 0 ? (
+                <div
+                  className="p-12 text-center"
+                  data-ocid="admin.campaigns.empty_state"
+                >
+                  <p className="text-muted-foreground">No campaigns yet.</p>
+                  <Button
+                    onClick={() => navigate({ to: "/admin/campaigns/new" })}
+                    className="mt-4 bg-orange-500 hover:bg-orange-600 text-white"
+                  >
+                    Create First Campaign
+                  </Button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table data-ocid="admin.campaigns_table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Raised</TableHead>
+                        <TableHead>Target</TableHead>
+                        <TableHead>Deadline</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {campaigns?.map((campaign, i) => {
+                        const cat = getCategoryInfo(campaign.category);
+                        return (
+                          <TableRow
+                            key={campaign.id}
+                            data-ocid={`admin.campaigns.row.${i + 1}`}
                           >
-                            {cat.label}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm font-medium text-orange-600">
-                          {formatCurrency(campaign.currentAmount, "USD")}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {formatCurrency(campaign.targetAmount, "USD")}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {formatDate(campaign.deadline)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              campaign.isActive ? "default" : "secondary"
-                            }
-                            className={
-                              campaign.isActive
-                                ? "bg-green-100 text-green-700 hover:bg-green-100"
-                                : ""
-                            }
-                          >
-                            {campaign.isActive ? "Active" : "Inactive"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {/* Edit */}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 w-8 p-0"
-                              onClick={() =>
-                                navigate({
-                                  to: "/admin/campaigns/$id/edit",
-                                  params: { id: campaign.id },
-                                })
-                              }
-                              data-ocid={`admin.edit_button.${i + 1}`}
-                            >
-                              <Edit className="w-3.5 h-3.5" />
-                            </Button>
-
-                            {/* Toggle */}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 w-8 p-0"
-                              onClick={() => handleToggle(campaign.id)}
-                              disabled={
-                                togglingId === campaign.id || isToggling
-                              }
-                              data-ocid={`admin.toggle_button.${i + 1}`}
-                            >
-                              {togglingId === campaign.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : campaign.isActive ? (
-                                <ToggleRight className="w-3.5 h-3.5 text-green-500" />
-                              ) : (
-                                <ToggleLeft className="w-3.5 h-3.5 text-muted-foreground" />
-                              )}
-                            </Button>
-
-                            {/* Delete */}
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
+                            <TableCell className="font-medium max-w-[200px]">
+                              <span className="line-clamp-1 text-sm">
+                                {campaign.title}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span
+                                className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cat.color}`}
+                              >
+                                {cat.label}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-sm font-medium text-orange-600">
+                              {formatCurrency(campaign.currentAmount, "USD")}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {formatCurrency(campaign.targetAmount, "USD")}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {formatDate(campaign.deadline)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  campaign.isActive ? "default" : "secondary"
+                                }
+                                className={
+                                  campaign.isActive
+                                    ? "bg-green-100 text-green-700 hover:bg-green-100"
+                                    : ""
+                                }
+                              >
+                                {campaign.isActive ? "Active" : "Inactive"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
-                                  data-ocid={`admin.delete_button.${i + 1}`}
+                                  className="h-8 w-8 p-0"
+                                  onClick={() =>
+                                    navigate({
+                                      to: "/admin/campaigns/$id/edit",
+                                      params: { id: campaign.id },
+                                    })
+                                  }
+                                  data-ocid={`admin.edit_button.${i + 1}`}
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <Edit className="w-3.5 h-3.5" />
                                 </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent data-ocid="admin.delete.dialog">
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>
-                                    Delete Campaign?
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This will permanently delete "
-                                    {campaign.title}" and all associated data.
-                                    This action cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel data-ocid="admin.delete.cancel_button">
-                                    Cancel
-                                  </AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(campaign.id)}
-                                    className="bg-destructive hover:bg-destructive/90"
-                                    data-ocid="admin.delete.confirm_button"
-                                  >
-                                    {deletingId === campaign.id ? (
-                                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                    ) : null}
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </div>
 
-        {/* Donations table */}
-        <div className="bg-card rounded-xl card-shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-            <h2 className="font-display font-bold text-lg">Recent Donations</h2>
-            <span className="text-sm text-muted-foreground">
-              {donations?.length ?? 0} total
-            </span>
-          </div>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => handleToggle(campaign.id)}
+                                  disabled={
+                                    togglingId === campaign.id || isToggling
+                                  }
+                                  data-ocid={`admin.toggle_button.${i + 1}`}
+                                >
+                                  {togglingId === campaign.id ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : campaign.isActive ? (
+                                    <ToggleRight className="w-3.5 h-3.5 text-green-500" />
+                                  ) : (
+                                    <ToggleLeft className="w-3.5 h-3.5 text-muted-foreground" />
+                                  )}
+                                </Button>
 
-          {donationsLoading ? (
-            <div className="p-6 space-y-3">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                                      data-ocid={`admin.delete_button.${i + 1}`}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent data-ocid="admin.delete.dialog">
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>
+                                        Delete Campaign?
+                                      </AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This will permanently delete "
+                                        {campaign.title}" and all associated
+                                        data. This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel data-ocid="admin.delete.cancel_button">
+                                        Cancel
+                                      </AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() =>
+                                          handleDelete(campaign.id)
+                                        }
+                                        className="bg-destructive hover:bg-destructive/90"
+                                        data-ocid="admin.delete.confirm_button"
+                                      >
+                                        {deletingId === campaign.id ? (
+                                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                        ) : null}
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </div>
-          ) : (donations?.length ?? 0) === 0 ? (
-            <div className="p-12 text-center" data-ocid="admin.donations_table">
-              <p className="text-muted-foreground">No donations yet.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table data-ocid="admin.donations_table">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Donor</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Currency</TableHead>
-                    <TableHead>Payment</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Anonymous</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {donations?.slice(0, 50).map((donation, i) => (
-                    <TableRow
-                      key={donation.id}
-                      data-ocid={`admin.donations.row.${i + 1}`}
-                    >
-                      <TableCell>
-                        <div>
-                          <div className="text-sm font-medium">
-                            {donation.isAnonymous
-                              ? "Anonymous"
-                              : donation.donorName}
-                          </div>
-                          {!donation.isAnonymous && donation.donorEmail && (
-                            <div className="text-xs text-muted-foreground">
-                              {donation.donorEmail}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-semibold text-orange-600">
-                        {formatCurrency(donation.amount, donation.currency)}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {donation.currency}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {donation.paymentMethod.__kind__}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(donation.createdAt)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            donation.isAnonymous ? "secondary" : "outline"
-                          }
-                          className="text-xs"
-                        >
-                          {donation.isAnonymous ? "Yes" : "No"}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
+          </TabsContent>
+
+          {/* ─── Donations Tab ─── */}
+          <TabsContent value="donations">
+            <div className="bg-card rounded-xl card-shadow overflow-hidden">
+              <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+                <h2 className="font-display font-bold text-lg">
+                  Recent Donations
+                </h2>
+                <span className="text-sm text-muted-foreground">
+                  {donations?.length ?? 0} total
+                </span>
+              </div>
+
+              {donationsLoading ? (
+                <div className="p-6 space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+              ) : (donations?.length ?? 0) === 0 ? (
+                <div
+                  className="p-12 text-center"
+                  data-ocid="admin.donations.empty_state"
+                >
+                  <p className="text-muted-foreground">No donations yet.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table data-ocid="admin.donations_table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Donor</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Currency</TableHead>
+                        <TableHead>Payment</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Anonymous</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {donations?.slice(0, 50).map((donation, i) => (
+                        <TableRow
+                          key={donation.id}
+                          data-ocid={`admin.donations.row.${i + 1}`}
+                        >
+                          <TableCell>
+                            <div>
+                              <div className="text-sm font-medium">
+                                {donation.isAnonymous
+                                  ? "Anonymous"
+                                  : donation.donorName}
+                              </div>
+                              {!donation.isAnonymous && donation.donorEmail && (
+                                <div className="text-xs text-muted-foreground">
+                                  {donation.donorEmail}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-semibold text-orange-600">
+                            {formatCurrency(donation.amount, donation.currency)}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {donation.currency}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {donation.paymentMethod.__kind__}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {formatDate(donation.createdAt)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                donation.isAnonymous ? "secondary" : "outline"
+                              }
+                              className="text-xs"
+                            >
+                              {donation.isAnonymous ? "Yes" : "No"}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </TabsContent>
+
+          {/* ─── Messages Tab ─── */}
+          <TabsContent value="messages">
+            <div className="bg-card rounded-xl card-shadow overflow-hidden">
+              <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <h2 className="font-display font-bold text-lg">
+                    Contact Messages
+                  </h2>
+                  {unreadCount > 0 && (
+                    <Badge className="bg-orange-500 text-white">
+                      {unreadCount} unread
+                    </Badge>
+                  )}
+                </div>
+                <span className="text-sm text-muted-foreground">
+                  {messages.length} total
+                </span>
+              </div>
+
+              {messages.length === 0 ? (
+                <div
+                  className="p-12 text-center"
+                  data-ocid="admin.messages.empty_state"
+                >
+                  <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+                    <MessageSquare className="w-7 h-7 text-muted-foreground" />
+                  </div>
+                  <p className="font-semibold text-foreground mb-1">
+                    No messages yet
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Contact form submissions will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table data-ocid="admin.messages_table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Contact</TableHead>
+                        <TableHead>Message</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {messages.map((msg, i) => (
+                        <TableRow
+                          key={msg.id}
+                          data-ocid={`admin.messages.row.${i + 1}`}
+                          className={!msg.isRead ? "bg-orange-50/40" : ""}
+                        >
+                          <TableCell className="font-medium text-sm">
+                            {msg.name}
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <Mail className="w-3 h-3" />
+                                <span className="truncate max-w-[160px]">
+                                  {msg.email}
+                                </span>
+                              </div>
+                              {msg.phone && (
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                  <Phone className="w-3 h-3" />
+                                  <span>{msg.phone}</span>
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="max-w-[200px]">
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {msg.message}
+                            </p>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                            {new Date(msg.createdAt).toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              },
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={msg.isRead ? "secondary" : "default"}
+                              className={
+                                msg.isRead
+                                  ? ""
+                                  : "bg-orange-500 text-white hover:bg-orange-500"
+                              }
+                            >
+                              {msg.isRead ? "Read" : "Unread"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              {!msg.isRead && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  onClick={() => handleMarkRead(msg.id)}
+                                  data-ocid={`admin.messages.read_button.${i + 1}`}
+                                >
+                                  Mark Read
+                                </Button>
+                              )}
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                                    data-ocid={`admin.messages.delete_button.${i + 1}`}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent data-ocid="admin.messages.delete.dialog">
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      Delete Message?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This will permanently delete the message
+                                      from {msg.name}. This action cannot be
+                                      undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel data-ocid="admin.messages.delete.cancel_button">
+                                      Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() =>
+                                        handleDeleteMessage(msg.id)
+                                      }
+                                      className="bg-destructive hover:bg-destructive/90"
+                                      data-ocid="admin.messages.delete.confirm_button"
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* ─── Users / Donors Tab ─── */}
+          <TabsContent value="users">
+            <div className="bg-card rounded-xl card-shadow overflow-hidden">
+              <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+                <h2 className="font-display font-bold text-lg">
+                  Users / Donors
+                </h2>
+                <span className="text-sm text-muted-foreground">
+                  {donors.length} unique donors
+                </span>
+              </div>
+
+              {donationsLoading ? (
+                <div className="p-6 space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : donors.length === 0 ? (
+                <div
+                  className="p-12 text-center"
+                  data-ocid="admin.users.empty_state"
+                >
+                  <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+                    <Users className="w-7 h-7 text-muted-foreground" />
+                  </div>
+                  <p className="font-semibold text-foreground mb-1">
+                    No donors yet
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Donor records will appear here once donations are made.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table data-ocid="admin.users_table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Total Donated</TableHead>
+                        <TableHead># Donations</TableHead>
+                        <TableHead>Last Donation</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {donors.map((donor, i) => (
+                        <TableRow
+                          key={`${donor.email}-${i}`}
+                          data-ocid={`admin.users.row.${i + 1}`}
+                        >
+                          <TableCell className="font-medium text-sm">
+                            {donor.name}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {donor.email}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {donor.phone || "—"}
+                          </TableCell>
+                          <TableCell className="font-semibold text-orange-600">
+                            {formatCurrency(donor.totalDonated, "USD")}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">
+                              {donor.donationCount}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {formatDate(donor.lastDonation)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

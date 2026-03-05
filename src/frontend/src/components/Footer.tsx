@@ -2,6 +2,8 @@ import { useNavigate } from "@tanstack/react-router";
 import { Heart, Mail, MapPin, Phone } from "lucide-react";
 import { SiFacebook, SiInstagram, SiLinkedin, SiX } from "react-icons/si";
 
+type ValidRoute = "/" | "/campaigns" | "/contact" | "/donate-history";
+
 export default function Footer() {
   const currentYear = new Date().getFullYear();
   const hostname =
@@ -59,9 +61,13 @@ export default function Footer() {
             </h3>
             <ul className="space-y-3">
               {[
-                { label: "Home", to: "/" as const },
-                { label: "All Campaigns", to: "/campaigns" as const },
-                { label: "Admin", to: "/admin" as const },
+                { label: "Home", to: "/" as ValidRoute },
+                { label: "All Campaigns", to: "/campaigns" as ValidRoute },
+                { label: "Contact", to: "/contact" as ValidRoute },
+                {
+                  label: "Donate History",
+                  to: "/donate-history" as ValidRoute,
+                },
               ].map((link) => (
                 <li key={link.label}>
                   <button
@@ -70,17 +76,6 @@ export default function Footer() {
                     className="text-sm text-white/60 hover:text-orange-400 transition-colors"
                   >
                     {link.label}
-                  </button>
-                </li>
-              ))}
-              {["About Us", "Contact"].map((item) => (
-                <li key={item}>
-                  <button
-                    type="button"
-                    onClick={() => {}}
-                    className="text-sm text-white/60 hover:text-orange-400 transition-colors"
-                  >
-                    {item}
                   </button>
                 </li>
               ))}
