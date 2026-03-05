@@ -124,8 +124,10 @@ export default function CampaignDetailPage() {
                   >
                     {categoryInfo.label}
                   </span>
-                  {!campaign.isActive && (
-                    <Badge variant="secondary">Closed</Badge>
+                  {campaign.status !== "active" && (
+                    <Badge variant="secondary" className="capitalize">
+                      {campaign.status}
+                    </Badge>
                   )}
                 </div>
                 <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground leading-tight mb-4">
@@ -313,17 +315,24 @@ export default function CampaignDetailPage() {
               className="lg:col-span-2"
             >
               <div className="sticky top-24">
-                {campaign.isActive ? (
+                {campaign.status === "active" ? (
                   <DonationForm campaign={campaign} />
                 ) : (
                   <div className="bg-card rounded-2xl p-6 card-shadow text-center">
                     <Heart className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                     <h3 className="font-display font-bold text-lg mb-2">
-                      Campaign Ended
+                      {campaign.status === "completed"
+                        ? "Campaign Completed"
+                        : campaign.status === "paused"
+                          ? "Campaign Paused"
+                          : "Campaign Not Active"}
                     </h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      This campaign has ended. Browse other active campaigns to
-                      make a difference.
+                      {campaign.status === "completed"
+                        ? "This campaign has reached its goal. Thank you to all supporters!"
+                        : campaign.status === "paused"
+                          ? "This campaign is temporarily paused. Check back soon."
+                          : "This campaign is not currently accepting donations."}
                     </p>
                     <Button
                       onClick={() => navigate({ to: "/campaigns" })}

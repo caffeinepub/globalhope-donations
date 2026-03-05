@@ -35,8 +35,14 @@ export interface CampaignInput {
     imageIds: Array<string>;
     targetAmount: bigint;
     category: string;
+    qrCodeImageId?: string;
 }
 export type PaymentMethod = {
+    __kind__: "upi";
+    upi: {
+        utrReference: string;
+    };
+} | {
     __kind__: "stripe";
     stripe: {
         status: string;
@@ -46,12 +52,6 @@ export type PaymentMethod = {
     __kind__: "bankTransfer";
     bankTransfer: {
         reference: string;
-    };
-} | {
-    __kind__: "crypto";
-    crypto: {
-        walletAddress: string;
-        txHash: string;
     };
 };
 export type CampaignId = string;
@@ -111,15 +111,16 @@ export interface CampaignStats {
 }
 export interface Campaign {
     id: CampaignId;
+    status: CampaignStatus;
     title: string;
     createdAt: bigint;
     description: string;
     deadline: bigint;
-    isActive: boolean;
     videoUrls: Array<string>;
     imageIds: Array<string>;
     targetAmount: bigint;
     category: string;
+    qrCodeImageId?: string;
     currentAmount: bigint;
 }
 export type StripeSessionStatus = {
@@ -143,6 +144,12 @@ export interface UserProfile {
     name: string;
     email: string;
     phone: string;
+}
+export enum CampaignStatus {
+    active = "active",
+    completed = "completed",
+    draft = "draft",
+    paused = "paused"
 }
 export enum UserRole {
     admin = "admin",
@@ -181,10 +188,10 @@ export interface backendInterface {
     isStripeConfigured(): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     saveLegalPage(id: string, content: string): Promise<void>;
+    setCampaignStatus(campaignId: CampaignId, status: CampaignStatus): Promise<void>;
     setStripeConfiguration(config: StripeConfiguration): Promise<void>;
     setUpiQrCode(imageId: string): Promise<void>;
     submitDonation(input: DonationInput): Promise<DonationId>;
-    toggleCampaignStatus(campaignId: CampaignId): Promise<void>;
     transform(input: TransformationInput): Promise<TransformationOutput>;
     updateCampaign(campaignId: CampaignId, input: CampaignInput): Promise<void>;
     uploadImage(id: string, contentType: string, originalName: string, size: bigint, blob: ExternalBlob): Promise<void>;

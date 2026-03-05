@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   useCampaign,
   useCreateCampaign,
+  useImageBlob,
   useIsCallerAdmin,
   useUpdateCampaign,
   useUploadImage,
@@ -24,6 +25,7 @@ import {
   ImageIcon,
   Loader2,
   Plus,
+  QrCode,
   Upload,
   X,
 } from "lucide-react";
@@ -70,12 +72,23 @@ export default function AdminCampaignFormPage() {
   const [deadline, setDeadline] = useState("");
   const [videoUrls, setVideoUrls] = useState<string[]>([""]);
   const [imageIds, setImageIds] = useState<string[]>([]);
+  const [qrCodeImageId, setQrCodeImageId] = useState<string | undefined>(
+    undefined,
+  );
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [qrUploadProgress, setQrUploadProgress] = useState<number>(0);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const qrFileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: qrPreviewUrl } = useImageBlob(qrCodeImageId);
 
   useEffect(() => {
-    if (!adminLoading && isAdmin === false) {
+    const isLocallyAuthenticated =
+      localStorage.getItem("admin_authenticated") === "true";
+    // Only redirect if the backend also confirms not-admin AND we have no local session.
+    // This prevents a premature redirect while the admin token is still initializing.
+    if (!adminLoading && isAdmin === false && !isLocallyAuthenticated) {
       navigate({ to: "/admin" });
     }
   }, [isAdmin, adminLoading, navigate]);
@@ -97,6 +110,9 @@ export default function AdminCampaignFormPage() {
           : [""],
       );
       setImageIds(existingCampaign.imageIds);
+      if (existingCampaign.qrCodeImageId) {
+        setQrCodeImageId(existingCampaign.qrCodeImageId);
+      }
     }
   }, [isEdit, existingCampaign]);
 
@@ -106,6 +122,15 @@ export default function AdminCampaignFormPage() {
     const newPreviews: string[] = [];
 
     for (const file of Array.from(files)) {
+      if (!file.type.startsWith("image/")) {
+        toast.error("Upload failed. Please check file format or size.");
+        continue;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("File too large. Maximum size is 10MB.");
+        continue;
+      }
+
       const imgId = generateId();
       const reader = new FileReader();
       await new Promise<void>((resolve) => {
@@ -136,13 +161,55 @@ export default function AdminCampaignFormPage() {
         toast.success(`Uploaded ${file.name}`);
       } catch (err) {
         console.error("Upload failed:", err);
-        toast.error(`Failed to upload ${file.name}`);
+        toast.error("Upload failed. Please check file format or size.");
       }
     }
 
     setImageIds((prev) => [...prev, ...newIds]);
     setPreviewUrls((prev) => [...prev, ...newPreviews]);
     setUploadProgress(0);
+  };
+
+  const handleQrUpload = async (file: File | null) => {
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Upload failed. Please check file format or size.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File too large. Maximum size is 5MB.");
+      return;
+    }
+
+    const qrId = `qr_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    try {
+      setQrUploadProgress(10);
+      const arrayBuffer = await file.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const blob = ExternalBlob.fromBytes(uint8Array).withUploadProgress(
+        (p) => {
+          setQrUploadProgress(10 + Math.round(p * 0.85));
+        },
+      );
+      await uploadImage({
+        id: qrId,
+        contentType: file.type,
+        originalName: file.name,
+        size: BigInt(file.size),
+        blob,
+      });
+      setQrUploadProgress(100);
+      setQrCodeImageId(qrId);
+      toast.success("QR code uploaded");
+      setTimeout(() => setQrUploadProgress(0), 1500);
+    } catch (err) {
+      console.error("QR upload failed:", err);
+      toast.error("Upload failed. Please check file format or size.");
+      setQrUploadProgress(0);
+    }
+
+    if (qrFileInputRef.current) qrFileInputRef.current.value = "";
   };
 
   const removeImage = (idx: number) => {
@@ -188,6 +255,7 @@ export default function AdminCampaignFormPage() {
       deadline: deadlineNs,
       videoUrls: validVideoUrls,
       imageIds,
+      qrCodeImageId,
     };
 
     try {
@@ -201,9 +269,7 @@ export default function AdminCampaignFormPage() {
       navigate({ to: "/admin/dashboard" });
     } catch (err) {
       console.error(err);
-      toast.error(
-        `Failed to ${isEdit ? "update" : "create"} campaign. Please try again.`,
-      );
+      toast.error("Campaign creation failed. Please check required fields.");
     }
   };
 
@@ -508,6 +574,112 @@ export default function AdminCampaignFormPage() {
                 Add Video URL
               </Button>
             </div>
+          </div>
+
+          {/* QR Code (optional) */}
+          <div className="bg-card rounded-xl p-6 card-shadow space-y-4">
+            <h2 className="font-display font-bold text-lg border-b border-border pb-3">
+              Campaign QR Code{" "}
+              <span className="text-muted-foreground font-normal text-sm">
+                (optional)
+              </span>
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Upload a UPI QR code specific to this campaign. Donors using UPI
+              will see this QR code. PNG, JPG, SVG · Max 5MB.
+            </p>
+
+            <input
+              ref={qrFileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/*"
+              className="hidden"
+              onChange={(e) => handleQrUpload(e.target.files?.[0] ?? null)}
+            />
+
+            {qrPreviewUrl ? (
+              <div className="flex items-start gap-4">
+                <div className="relative">
+                  <img
+                    src={qrPreviewUrl}
+                    alt="Campaign QR Code"
+                    className="w-32 h-32 object-contain rounded-xl border-2 border-border bg-white p-2"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setQrCodeImageId(undefined)}
+                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-destructive text-white flex items-center justify-center hover:bg-destructive/90 transition-colors"
+                    aria-label="Remove QR code"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="flex flex-col gap-2 pt-1">
+                  <p className="text-sm font-medium text-foreground">
+                    QR code uploaded
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => qrFileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                    data-ocid="campaign_form.qr_upload_button"
+                  >
+                    Replace QR Code
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  className="w-full max-w-xs rounded-xl border-2 border-dashed border-orange-200 bg-orange-50/50 p-6 text-center cursor-pointer hover:border-orange-400 hover:bg-orange-50 transition-colors"
+                  onClick={() => qrFileInputRef.current?.click()}
+                  data-ocid="campaign_form.qr_dropzone"
+                >
+                  <QrCode className="w-10 h-10 text-orange-300 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground font-medium">
+                    Click to upload QR code
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    PNG, JPG, SVG · Max 5MB
+                  </p>
+                </button>
+
+                {qrUploadProgress > 0 && qrUploadProgress < 100 && (
+                  <div
+                    className="space-y-1 max-w-xs"
+                    data-ocid="campaign_form.qr_loading_state"
+                  >
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Uploading QR...</span>
+                      <span>{qrUploadProgress}%</span>
+                    </div>
+                    <div className="progress-bar">
+                      <div
+                        className="progress-fill"
+                        style={{ width: `${qrUploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => qrFileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                  data-ocid="campaign_form.qr_upload_button"
+                >
+                  <QrCode className="w-4 h-4 mr-2" />
+                  Upload QR Code
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Actions */}

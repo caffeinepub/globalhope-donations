@@ -12,15 +12,16 @@ import type { Principal } from '@icp-sdk/core/principal';
 
 export interface Campaign {
   'id' : CampaignId,
+  'status' : CampaignStatus,
   'title' : string,
   'createdAt' : bigint,
   'description' : string,
   'deadline' : bigint,
-  'isActive' : boolean,
   'videoUrls' : Array<string>,
   'imageIds' : Array<string>,
   'targetAmount' : bigint,
   'category' : string,
+  'qrCodeImageId' : [] | [string],
   'currentAmount' : bigint,
 }
 export type CampaignId = string;
@@ -32,11 +33,16 @@ export interface CampaignInput {
   'imageIds' : Array<string>,
   'targetAmount' : bigint,
   'category' : string,
+  'qrCodeImageId' : [] | [string],
 }
 export interface CampaignStats {
   'totalRaised' : bigint,
   'supporterCount' : bigint,
 }
+export type CampaignStatus = { 'active' : null } |
+  { 'completed' : null } |
+  { 'draft' : null } |
+  { 'paused' : null };
 export interface Donation {
   'id' : DonationId,
   'donorPhone' : string,
@@ -77,11 +83,9 @@ export interface LegalPage {
   'content' : string,
   'updatedAt' : bigint,
 }
-export type PaymentMethod = {
-    'stripe' : { 'status' : string, 'sessionId' : string }
-  } |
-  { 'bankTransfer' : { 'reference' : string } } |
-  { 'crypto' : { 'walletAddress' : string, 'txHash' : string } };
+export type PaymentMethod = { 'upi' : { 'utrReference' : string } } |
+  { 'stripe' : { 'status' : string, 'sessionId' : string } } |
+  { 'bankTransfer' : { 'reference' : string } };
 export interface ShoppingItem {
   'productName' : string,
   'currency' : string,
@@ -182,10 +186,10 @@ export interface _SERVICE {
   'isStripeConfigured' : ActorMethod<[], boolean>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'saveLegalPage' : ActorMethod<[string, string], undefined>,
+  'setCampaignStatus' : ActorMethod<[CampaignId, CampaignStatus], undefined>,
   'setStripeConfiguration' : ActorMethod<[StripeConfiguration], undefined>,
   'setUpiQrCode' : ActorMethod<[string], undefined>,
   'submitDonation' : ActorMethod<[DonationInput], DonationId>,
-  'toggleCampaignStatus' : ActorMethod<[CampaignId], undefined>,
   'transform' : ActorMethod<[TransformationInput], TransformationOutput>,
   'updateCampaign' : ActorMethod<[CampaignId, CampaignInput], undefined>,
   'uploadImage' : ActorMethod<

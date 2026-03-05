@@ -8,7 +8,9 @@ import type {
   LegalPage,
   ShoppingItem,
 } from "../backend.d";
+import { CampaignStatus } from "../backend.d";
 import { useActor } from "./useActor";
+import { useAdminActor } from "./useAdminActor";
 
 // ─── Campaign Queries ──────────────────────────────────────
 
@@ -25,7 +27,7 @@ export function useActiveCampaigns() {
 }
 
 export function useAllCampaigns() {
-  const { actor, isFetching } = useActor();
+  const { actor, isFetching } = useAdminActor();
   return useQuery<Campaign[]>({
     queryKey: ["campaigns", "all"],
     queryFn: async () => {
@@ -87,7 +89,7 @@ export function useCampaignsSortedByAmount() {
 // ─── Admin Queries ─────────────────────────────────────────
 
 export function useIsCallerAdmin() {
-  const { actor, isFetching } = useActor();
+  const { actor, isFetching } = useAdminActor();
   return useQuery<boolean>({
     queryKey: ["isAdmin"],
     queryFn: async () => {
@@ -95,11 +97,14 @@ export function useIsCallerAdmin() {
       return actor.isCallerAdmin();
     },
     enabled: !!actor && !isFetching,
+    staleTime: 0, // always re-check after token init
+    refetchInterval: 2000, // poll until token is initialized and returns true
+    refetchIntervalInBackground: false,
   });
 }
 
 export function useAllDonations() {
-  const { actor, isFetching } = useActor();
+  const { actor, isFetching } = useAdminActor();
   return useQuery<Donation[]>({
     queryKey: ["donations", "all"],
     queryFn: async () => {
@@ -195,7 +200,7 @@ export function useSubmitDonation() {
 }
 
 export function useCreateCampaign() {
-  const { actor } = useActor();
+  const { actor } = useAdminActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: CampaignInput) => {
@@ -209,7 +214,7 @@ export function useCreateCampaign() {
 }
 
 export function useUpdateCampaign() {
-  const { actor } = useActor();
+  const { actor } = useAdminActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -229,7 +234,7 @@ export function useUpdateCampaign() {
 }
 
 export function useDeleteCampaign() {
-  const { actor } = useActor();
+  const { actor } = useAdminActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (campaignId: string) => {
@@ -242,13 +247,19 @@ export function useDeleteCampaign() {
   });
 }
 
-export function useToggleCampaignStatus() {
-  const { actor } = useActor();
+export function useSetCampaignStatus() {
+  const { actor } = useAdminActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (campaignId: string) => {
+    mutationFn: async ({
+      campaignId,
+      status,
+    }: {
+      campaignId: string;
+      status: CampaignStatus;
+    }) => {
       if (!actor) throw new Error("Not connected");
-      return actor.toggleCampaignStatus(campaignId);
+      return actor.setCampaignStatus(campaignId, status);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["campaigns"] });
@@ -256,8 +267,11 @@ export function useToggleCampaignStatus() {
   });
 }
 
+// Re-export CampaignStatus for convenience
+export { CampaignStatus };
+
 export function useUploadImage() {
-  const { actor } = useActor();
+  const { actor } = useAdminActor();
   return useMutation({
     mutationFn: async ({
       id,
@@ -300,7 +314,7 @@ export function useUpiQrCode() {
 }
 
 export function useSetUpiQrCode() {
-  const { actor } = useActor();
+  const { actor } = useAdminActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (imageId: string) => {
@@ -314,7 +328,7 @@ export function useSetUpiQrCode() {
 }
 
 export function useClearUpiQrCode() {
-  const { actor } = useActor();
+  const { actor } = useAdminActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
@@ -354,7 +368,7 @@ export function useGetAllLegalPages() {
 }
 
 export function useSaveLegalPage() {
-  const { actor } = useActor();
+  const { actor } = useAdminActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, content }: { id: string; content: string }) => {

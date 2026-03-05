@@ -32,6 +32,7 @@ export const CampaignInput = IDL.Record({
   'imageIds' : IDL.Vec(IDL.Text),
   'targetAmount' : IDL.Nat,
   'category' : IDL.Text,
+  'qrCodeImageId' : IDL.Opt(IDL.Text),
 });
 export const CampaignId = IDL.Text;
 export const ShoppingItem = IDL.Record({
@@ -41,24 +42,31 @@ export const ShoppingItem = IDL.Record({
   'priceInCents' : IDL.Nat,
   'productDescription' : IDL.Text,
 });
+export const CampaignStatus = IDL.Variant({
+  'active' : IDL.Null,
+  'completed' : IDL.Null,
+  'draft' : IDL.Null,
+  'paused' : IDL.Null,
+});
 export const Campaign = IDL.Record({
   'id' : CampaignId,
+  'status' : CampaignStatus,
   'title' : IDL.Text,
   'createdAt' : IDL.Int,
   'description' : IDL.Text,
   'deadline' : IDL.Int,
-  'isActive' : IDL.Bool,
   'videoUrls' : IDL.Vec(IDL.Text),
   'imageIds' : IDL.Vec(IDL.Text),
   'targetAmount' : IDL.Nat,
   'category' : IDL.Text,
+  'qrCodeImageId' : IDL.Opt(IDL.Text),
   'currentAmount' : IDL.Nat,
 });
 export const DonationId = IDL.Text;
 export const PaymentMethod = IDL.Variant({
+  'upi' : IDL.Record({ 'utrReference' : IDL.Text }),
   'stripe' : IDL.Record({ 'status' : IDL.Text, 'sessionId' : IDL.Text }),
   'bankTransfer' : IDL.Record({ 'reference' : IDL.Text }),
-  'crypto' : IDL.Record({ 'walletAddress' : IDL.Text, 'txHash' : IDL.Text }),
 });
 export const Donation = IDL.Record({
   'id' : DonationId,
@@ -176,18 +184,14 @@ export const idlService = IDL.Service({
     ),
   'deleteCampaign' : IDL.Func([CampaignId], [], []),
   'getActiveCampaigns' : IDL.Func([], [IDL.Vec(Campaign)], ['query']),
-  'getAllCampaigns' : IDL.Func([], [IDL.Vec(Campaign)], ['query']),
-  'getAllDonations' : IDL.Func([], [IDL.Vec(Donation)], ['query']),
+  'getAllCampaigns' : IDL.Func([], [IDL.Vec(Campaign)], []),
+  'getAllDonations' : IDL.Func([], [IDL.Vec(Donation)], []),
   'getAllImageMetadata' : IDL.Func([], [IDL.Vec(ImageMetadata)], ['query']),
   'getAllLegalPages' : IDL.Func([], [IDL.Vec(LegalPage)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getCampaign' : IDL.Func([CampaignId], [IDL.Opt(Campaign)], ['query']),
-  'getCampaignDonations' : IDL.Func(
-      [CampaignId],
-      [IDL.Vec(Donation)],
-      ['query'],
-    ),
+  'getCampaignDonations' : IDL.Func([CampaignId], [IDL.Vec(Donation)], []),
   'getCampaignStats' : IDL.Func([CampaignId], [CampaignStats], ['query']),
   'getCampaignsSortedByAmountRaised' : IDL.Func(
       [],
@@ -201,11 +205,7 @@ export const idlService = IDL.Service({
     ),
   'getCampaignsSortedByDeadline' : IDL.Func([], [IDL.Vec(Campaign)], ['query']),
   'getDonationStats' : IDL.Func([], [IDL.Nat, IDL.Nat, IDL.Nat], ['query']),
-  'getDonationsByCampaign' : IDL.Func(
-      [CampaignId],
-      [IDL.Vec(Donation)],
-      ['query'],
-    ),
+  'getDonationsByCampaign' : IDL.Func([CampaignId], [IDL.Vec(Donation)], []),
   'getImageArrival' : IDL.Func([], [IDL.Vec(IDL.Nat8)], ['query']),
   'getImageBlob' : IDL.Func([IDL.Text], [IDL.Opt(ExternalBlob)], ['query']),
   'getImageMetadata' : IDL.Func(
@@ -225,10 +225,10 @@ export const idlService = IDL.Service({
   'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'saveLegalPage' : IDL.Func([IDL.Text, IDL.Text], [], []),
+  'setCampaignStatus' : IDL.Func([CampaignId, CampaignStatus], [], []),
   'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
   'setUpiQrCode' : IDL.Func([IDL.Text], [], []),
   'submitDonation' : IDL.Func([DonationInput], [DonationId], []),
-  'toggleCampaignStatus' : IDL.Func([CampaignId], [], []),
   'transform' : IDL.Func(
       [TransformationInput],
       [TransformationOutput],
@@ -269,6 +269,7 @@ export const idlFactory = ({ IDL }) => {
     'imageIds' : IDL.Vec(IDL.Text),
     'targetAmount' : IDL.Nat,
     'category' : IDL.Text,
+    'qrCodeImageId' : IDL.Opt(IDL.Text),
   });
   const CampaignId = IDL.Text;
   const ShoppingItem = IDL.Record({
@@ -278,24 +279,31 @@ export const idlFactory = ({ IDL }) => {
     'priceInCents' : IDL.Nat,
     'productDescription' : IDL.Text,
   });
+  const CampaignStatus = IDL.Variant({
+    'active' : IDL.Null,
+    'completed' : IDL.Null,
+    'draft' : IDL.Null,
+    'paused' : IDL.Null,
+  });
   const Campaign = IDL.Record({
     'id' : CampaignId,
+    'status' : CampaignStatus,
     'title' : IDL.Text,
     'createdAt' : IDL.Int,
     'description' : IDL.Text,
     'deadline' : IDL.Int,
-    'isActive' : IDL.Bool,
     'videoUrls' : IDL.Vec(IDL.Text),
     'imageIds' : IDL.Vec(IDL.Text),
     'targetAmount' : IDL.Nat,
     'category' : IDL.Text,
+    'qrCodeImageId' : IDL.Opt(IDL.Text),
     'currentAmount' : IDL.Nat,
   });
   const DonationId = IDL.Text;
   const PaymentMethod = IDL.Variant({
+    'upi' : IDL.Record({ 'utrReference' : IDL.Text }),
     'stripe' : IDL.Record({ 'status' : IDL.Text, 'sessionId' : IDL.Text }),
     'bankTransfer' : IDL.Record({ 'reference' : IDL.Text }),
-    'crypto' : IDL.Record({ 'walletAddress' : IDL.Text, 'txHash' : IDL.Text }),
   });
   const Donation = IDL.Record({
     'id' : DonationId,
@@ -410,18 +418,14 @@ export const idlFactory = ({ IDL }) => {
       ),
     'deleteCampaign' : IDL.Func([CampaignId], [], []),
     'getActiveCampaigns' : IDL.Func([], [IDL.Vec(Campaign)], ['query']),
-    'getAllCampaigns' : IDL.Func([], [IDL.Vec(Campaign)], ['query']),
-    'getAllDonations' : IDL.Func([], [IDL.Vec(Donation)], ['query']),
+    'getAllCampaigns' : IDL.Func([], [IDL.Vec(Campaign)], []),
+    'getAllDonations' : IDL.Func([], [IDL.Vec(Donation)], []),
     'getAllImageMetadata' : IDL.Func([], [IDL.Vec(ImageMetadata)], ['query']),
     'getAllLegalPages' : IDL.Func([], [IDL.Vec(LegalPage)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getCampaign' : IDL.Func([CampaignId], [IDL.Opt(Campaign)], ['query']),
-    'getCampaignDonations' : IDL.Func(
-        [CampaignId],
-        [IDL.Vec(Donation)],
-        ['query'],
-      ),
+    'getCampaignDonations' : IDL.Func([CampaignId], [IDL.Vec(Donation)], []),
     'getCampaignStats' : IDL.Func([CampaignId], [CampaignStats], ['query']),
     'getCampaignsSortedByAmountRaised' : IDL.Func(
         [],
@@ -439,11 +443,7 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getDonationStats' : IDL.Func([], [IDL.Nat, IDL.Nat, IDL.Nat], ['query']),
-    'getDonationsByCampaign' : IDL.Func(
-        [CampaignId],
-        [IDL.Vec(Donation)],
-        ['query'],
-      ),
+    'getDonationsByCampaign' : IDL.Func([CampaignId], [IDL.Vec(Donation)], []),
     'getImageArrival' : IDL.Func([], [IDL.Vec(IDL.Nat8)], ['query']),
     'getImageBlob' : IDL.Func([IDL.Text], [IDL.Opt(ExternalBlob)], ['query']),
     'getImageMetadata' : IDL.Func(
@@ -463,10 +463,10 @@ export const idlFactory = ({ IDL }) => {
     'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'saveLegalPage' : IDL.Func([IDL.Text, IDL.Text], [], []),
+    'setCampaignStatus' : IDL.Func([CampaignId, CampaignStatus], [], []),
     'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
     'setUpiQrCode' : IDL.Func([IDL.Text], [], []),
     'submitDonation' : IDL.Func([DonationInput], [DonationId], []),
-    'toggleCampaignStatus' : IDL.Func([CampaignId], [], []),
     'transform' : IDL.Func(
         [TransformationInput],
         [TransformationOutput],

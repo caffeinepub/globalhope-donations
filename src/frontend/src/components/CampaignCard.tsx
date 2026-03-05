@@ -59,10 +59,10 @@ export default function CampaignCard({
             {categoryInfo.label}
           </span>
         </div>
-        {!campaign.isActive && (
+        {campaign.status !== "active" && (
           <div className="absolute top-3 right-3">
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-700 text-gray-200">
-              Closed
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-700 text-gray-200 capitalize">
+              {campaign.status}
             </span>
           </div>
         )}

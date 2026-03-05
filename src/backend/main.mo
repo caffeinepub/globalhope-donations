@@ -8,17 +8,17 @@ import Text "mo:core/Text";
 import OutCall "http-outcalls/outcall";
 import Stripe "stripe/stripe";
 import Nat "mo:core/Nat";
+import Int "mo:core/Int";
 import Time "mo:core/Time";
 import Blob "mo:core/Blob";
 import Storage "blob-storage/Storage";
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
 import MixinStorage "blob-storage/Mixin";
-import Migration "migration";
-import Int "mo:core/Int";
 import Order "mo:core/Order";
 
-(with migration = Migration.run)
+
+
 actor {
   // Include prefabricated components
   let accessControlState = AccessControl.initState();
@@ -28,10 +28,18 @@ actor {
   // Types
   public type CampaignId = Text;
   public type DonationId = Text;
+
+  public type CampaignStatus = {
+    #active;
+    #paused;
+    #completed;
+    #draft;
+  };
+
   public type PaymentMethod = {
     #stripe : { sessionId : Text; status : Text };
     #bankTransfer : { reference : Text };
-    #crypto : { walletAddress : Text; txHash : Text };
+    #upi : { utrReference : Text };
   };
 
   public type Campaign = {
@@ -40,12 +48,13 @@ actor {
     description : Text;
     imageIds : [Text];
     videoUrls : [Text];
+    qrCodeImageId : ?Text;
     targetAmount : Nat;
     currentAmount : Nat;
     category : Text;
     deadline : Int;
     createdAt : Int;
-    isActive : Bool;
+    status : CampaignStatus;
   };
 
   public type Donation = {
@@ -60,7 +69,7 @@ actor {
     transactionId : Text;
     isAnonymous : Bool;
     createdAt : Int;
-    amountUSD : Nat; // Amount in USD cents
+    amountUSD : Nat;
   };
 
   public type CampaignStats = {
@@ -73,6 +82,7 @@ actor {
     description : Text;
     imageIds : [Text];
     videoUrls : [Text];
+    qrCodeImageId : ?Text;
     targetAmount : Nat;
     category : Text;
     deadline : Int;
@@ -87,7 +97,7 @@ actor {
     currency : Text;
     paymentMethod : PaymentMethod;
     isAnonymous : Bool;
-    amountUSD : Nat; // Amount in USD cents
+    amountUSD : Nat;
   };
 
   public type ImageMetadata = {
@@ -171,12 +181,13 @@ actor {
       description = input.description;
       imageIds = input.imageIds;
       videoUrls = input.videoUrls;
+      qrCodeImageId = input.qrCodeImageId;
       targetAmount = input.targetAmount;
       currentAmount = 0;
       category = input.category;
       deadline = input.deadline;
       createdAt = Time.now();
-      isActive = true;
+      status = #draft; // Default status is draft
     };
 
     campaigns.add(id, campaign);
@@ -187,13 +198,16 @@ actor {
     campaigns.get(campaignId);
   };
 
-  public query func getAllCampaigns() : async [Campaign] {
+  public shared ({ caller }) func getAllCampaigns() : async [Campaign] {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
     let iter = campaigns.values();
     iter.toArray();
   };
 
   public query func getActiveCampaigns() : async [Campaign] {
-    campaigns.values().filter(func(c) { c.isActive }).toArray();
+    campaigns.values().filter(func(c) { c.status == #active }).toArray();
   };
 
   public query func getCampaignStats(campaignId : CampaignId) : async CampaignStats {
@@ -245,12 +259,13 @@ actor {
           description = input.description;
           imageIds = input.imageIds;
           videoUrls = input.videoUrls;
+          qrCodeImageId = input.qrCodeImageId;
           targetAmount = input.targetAmount;
           currentAmount = existing.currentAmount;
           category = input.category;
           deadline = input.deadline;
           createdAt = existing.createdAt;
-          isActive = existing.isActive;
+          status = existing.status;
         };
         campaigns.add(campaignId, updated);
       };
@@ -264,7 +279,7 @@ actor {
     campaigns.remove(campaignId);
   };
 
-  public shared ({ caller }) func toggleCampaignStatus(campaignId : CampaignId) : async () {
+  public shared ({ caller }) func setCampaignStatus(campaignId : CampaignId, status : CampaignStatus) : async () {
     if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
@@ -278,12 +293,13 @@ actor {
           description = existing.description;
           imageIds = existing.imageIds;
           videoUrls = existing.videoUrls;
+          qrCodeImageId = existing.qrCodeImageId;
           targetAmount = existing.targetAmount;
           currentAmount = existing.currentAmount;
           category = existing.category;
           deadline = existing.deadline;
           createdAt = existing.createdAt;
-          isActive = not existing.isActive;
+          status;
         };
         campaigns.add(campaignId, updated);
       };
@@ -304,9 +320,14 @@ actor {
       Runtime.trap("Unauthorized: Only users can submit donations");
     };
 
-    let _campaign = switch (campaigns.get(input.campaignId)) {
+    let campaign = switch (campaigns.get(input.campaignId)) {
       case (null) { Runtime.trap("Invalid campaign ID") };
       case (?c) { c };
+    };
+
+    // Validate campaign is active
+    if (campaign.status != #active) {
+      Runtime.trap("Campaign is not active");
     };
 
     let id = generateDonationId();
@@ -345,26 +366,27 @@ actor {
           description = existing.description;
           imageIds = existing.imageIds;
           videoUrls = existing.videoUrls;
+          qrCodeImageId = existing.qrCodeImageId;
           targetAmount = existing.targetAmount;
           currentAmount = existing.currentAmount + amount;
           category = existing.category;
           deadline = existing.deadline;
           createdAt = existing.createdAt;
-          isActive = existing.isActive;
+          status = existing.status;
         };
         campaigns.add(campaignId, updated);
       };
     };
   };
 
-  public query ({ caller }) func getAllDonations() : async [Donation] {
+  public shared ({ caller }) func getAllDonations() : async [Donation] {
     if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     donations.values().toArray();
   };
 
-  public query ({ caller }) func getCampaignDonations(campaignId : CampaignId) : async [Donation] {
+  public shared ({ caller }) func getCampaignDonations(campaignId : CampaignId) : async [Donation] {
     if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
@@ -373,58 +395,28 @@ actor {
   };
 
   public query func getDonationStats() : async (Nat, Nat, Nat) {
-    let totalDonations = donations.size();
-    let totalAmount = donations.values().toArray().foldLeft(
+    let totalAmountUSD = donations.values().toArray().foldLeft(
       0,
-      func(acc, d) { acc + d.amount },
+      func(acc, d) { acc + d.amountUSD },
     );
+    let totalDonations = donations.size();
     let uniqueDonorEmails = Set.empty<Text>();
     donations.values().forEach(func(d) { uniqueDonorEmails.add(d.donorEmail) });
     let supporterCount = uniqueDonorEmails.size();
-    (totalAmount, totalDonations, supporterCount);
+    (totalAmountUSD, totalDonations, supporterCount);
   };
 
-  public query ({ caller }) func getDonationsByCampaign(campaignId : CampaignId) : async [Donation] {
+  public shared ({ caller }) func getDonationsByCampaign(campaignId : CampaignId) : async [Donation] {
     if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     let all = donations.values().toArray();
-    all.filter(
-      func(d) { d.campaignId == campaignId }
-    );
-  };
-
-  // Payment methods
-  var stripeConfig : ?Stripe.StripeConfiguration = null;
-
-  public query func isStripeConfigured() : async Bool {
-    stripeConfig != null;
-  };
-
-  public shared ({ caller }) func setStripeConfiguration(config : Stripe.StripeConfiguration) : async () {
-    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
-      Runtime.trap("Unauthorized: Only admins can perform this action");
-    };
-    stripeConfig := ?config;
-  };
-
-  func getStripeConfiguration() : Stripe.StripeConfiguration {
-    switch (stripeConfig) {
-      case (null) { Runtime.trap("Stripe needs to be first configured") };
-      case (?value) { value };
-    };
-  };
-
-  public func getStripeSessionStatus(sessionId : Text) : async Stripe.StripeSessionStatus {
-    await Stripe.getSessionStatus(getStripeConfiguration(), sessionId, transform);
-  };
-
-  public shared ({ caller }) func createCheckoutSession(items : [Stripe.ShoppingItem], successUrl : Text, cancelUrl : Text) : async Text {
-    await Stripe.createCheckoutSession(getStripeConfiguration(), caller, items, successUrl, cancelUrl, transform);
+    all.filter(func(d) { d.campaignId == campaignId });
   };
 
   // Image storage
   let imageMetadata = Map.empty<Text, ImageMetadata>();
+
   public shared ({ caller }) func uploadImage(id : Text, contentType : Text, originalName : Text, size : Nat, blob : Storage.ExternalBlob) : async () {
     if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
@@ -485,6 +477,38 @@ actor {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     upiQrImageId := null;
+  };
+
+  // Stripe integration
+  var stripeConfig : ?Stripe.StripeConfiguration = null;
+
+  public query func isStripeConfigured() : async Bool {
+    stripeConfig != null;
+  };
+
+  public shared ({ caller }) func setStripeConfiguration(config : Stripe.StripeConfiguration) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
+    stripeConfig := ?config;
+  };
+
+  func getStripeConfiguration() : Stripe.StripeConfiguration {
+    switch (stripeConfig) {
+      case (null) { Runtime.trap("Stripe needs to be first configured") };
+      case (?value) { value };
+    };
+  };
+
+  public shared func getStripeSessionStatus(sessionId : Text) : async Stripe.StripeSessionStatus {
+    await Stripe.getSessionStatus(getStripeConfiguration(), sessionId, transform);
+  };
+
+  public shared ({ caller }) func createCheckoutSession(items : [Stripe.ShoppingItem], successUrl : Text, cancelUrl : Text) : async Text {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Unauthorized: Only users can create a session");
+    };
+    await Stripe.createCheckoutSession(getStripeConfiguration(), caller, items, successUrl, cancelUrl, transform);
   };
 
   // Legal pages management

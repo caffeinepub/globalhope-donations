@@ -11,6 +11,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -26,6 +32,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  CampaignStatus,
   useAllCampaigns,
   useAllDonations,
   useClearUpiQrCode,
@@ -34,8 +41,8 @@ import {
   useGetLegalPage,
   useImageBlob,
   useSaveLegalPage,
+  useSetCampaignStatus,
   useSetUpiQrCode,
-  useToggleCampaignStatus,
   useUpiQrCode,
   useUploadImage,
 } from "@/hooks/useQueries";
@@ -43,6 +50,8 @@ import { formatCurrency, formatDate, getCategoryInfo } from "@/lib/format";
 import { useNavigate } from "@tanstack/react-router";
 import {
   AlertCircle,
+  CheckCircle2,
+  ChevronDown,
   DollarSign,
   Edit,
   FileText,
@@ -52,13 +61,12 @@ import {
   LogOut,
   Mail,
   MessageSquare,
+  PauseCircle,
   Phone,
   Plus,
   QrCode,
   Save,
   Target,
-  ToggleLeft,
-  ToggleRight,
   Trash2,
   TrendingUp,
   Users,
@@ -100,8 +108,8 @@ export default function AdminDashboardPage() {
   const { data: stats, isLoading: statsLoading } = useDonationStats();
 
   const { mutateAsync: deleteCampaign } = useDeleteCampaign();
-  const { mutateAsync: toggleStatus, isPending: isToggling } =
-    useToggleCampaignStatus();
+  const { mutateAsync: setCampaignStatus, isPending: isStatusPending } =
+    useSetCampaignStatus();
 
   // UPI settings
   const { data: upiQrImageId } = useUpiQrCode();
@@ -113,7 +121,7 @@ export default function AdminDashboardPage() {
   const { mutateAsync: uploadImage, isPending: isUploading } = useUploadImage();
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [settingStatusId, setSettingStatusId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [upiId, setUpiId] = useState(
     () => localStorage.getItem("upi_id") || "globalhope@upi",
@@ -154,15 +162,15 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleToggle = async (id: string) => {
-    setTogglingId(id);
+  const handleSetStatus = async (id: string, status: CampaignStatus) => {
+    setSettingStatusId(id);
     try {
-      await toggleStatus(id);
-      toast.success("Campaign status updated");
+      await setCampaignStatus({ campaignId: id, status });
+      toast.success(`Campaign status set to ${status}`);
     } catch {
       toast.error("Failed to update campaign status");
     } finally {
-      setTogglingId(null);
+      setSettingStatusId(null);
     }
   };
 
@@ -171,7 +179,12 @@ export default function AdminDashboardPage() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast.error("Please upload an image file");
+      toast.error("Upload failed. Please check file format or size.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File too large. Maximum size is 5MB.");
       return;
     }
 
@@ -279,7 +292,16 @@ export default function AdminDashboardPage() {
 
   const unreadCount = messages.filter((m) => !m.isRead).length;
 
-  const [totalRaised, totalDonations, totalCampaigns] = stats ?? [0n, 0n, 0n];
+  const [totalRaised, totalDonations] = stats ?? [0n, 0n];
+
+  const activeCampaigns =
+    campaigns?.filter((c) => c.status === CampaignStatus.active).length ?? 0;
+  const pausedCampaigns =
+    campaigns?.filter((c) => c.status === CampaignStatus.paused).length ?? 0;
+  const completedCampaigns =
+    campaigns?.filter((c) => c.status === CampaignStatus.completed).length ?? 0;
+  const draftCampaigns =
+    campaigns?.filter((c) => c.status === CampaignStatus.draft).length ?? 0;
 
   const statCards = [
     {
@@ -290,25 +312,39 @@ export default function AdminDashboardPage() {
       bg: "bg-orange-50",
     },
     {
-      label: "Total Campaigns",
-      value: totalCampaigns.toString(),
+      label: "Active Campaigns",
+      value: activeCampaigns.toString(),
       icon: Target,
-      color: "text-blue-500",
-      bg: "bg-blue-50",
+      color: "text-green-600",
+      bg: "bg-green-50",
     },
     {
       label: "Total Donations",
       value: totalDonations.toString(),
       icon: TrendingUp,
-      color: "text-green-500",
-      bg: "bg-green-50",
+      color: "text-blue-500",
+      bg: "bg-blue-50",
     },
     {
-      label: "Active Campaigns",
-      value: campaigns?.filter((c) => c.isActive).length.toString() ?? "0",
-      icon: Users,
+      label: "Paused / Draft",
+      value: `${pausedCampaigns} / ${draftCampaigns}`,
+      icon: PauseCircle,
+      color: "text-amber-500",
+      bg: "bg-amber-50",
+    },
+    {
+      label: "Completed",
+      value: completedCampaigns.toString(),
+      icon: CheckCircle2,
       color: "text-purple-500",
       bg: "bg-purple-50",
+    },
+    {
+      label: "Total Campaigns",
+      value: (campaigns?.length ?? 0).toString(),
+      icon: Users,
+      color: "text-slate-500",
+      bg: "bg-slate-50",
     },
   ];
 
@@ -356,13 +392,13 @@ export default function AdminDashboardPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Stats */}
         {statsLoading ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
               <Skeleton key={i} className="h-28 rounded-xl" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {statCards.map((card, i) => (
               <motion.div
                 key={card.label}
@@ -729,9 +765,7 @@ export default function AdminDashboardPage() {
                       <TableRow>
                         <TableHead>Title</TableHead>
                         <TableHead>Category</TableHead>
-                        <TableHead>Raised</TableHead>
-                        <TableHead>Target</TableHead>
-                        <TableHead>Deadline</TableHead>
+                        <TableHead>Progress</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -739,14 +773,59 @@ export default function AdminDashboardPage() {
                     <TableBody>
                       {campaigns?.map((campaign, i) => {
                         const cat = getCategoryInfo(campaign.category);
+                        const progress =
+                          campaign.targetAmount > 0n
+                            ? Math.min(
+                                100,
+                                Number(
+                                  (campaign.currentAmount * 100n) /
+                                    campaign.targetAmount,
+                                ),
+                              )
+                            : 0;
+                        const statusOptions = [
+                          {
+                            value: CampaignStatus.active,
+                            label: "Set Active",
+                            color: "text-green-600",
+                          },
+                          {
+                            value: CampaignStatus.paused,
+                            label: "Pause",
+                            color: "text-amber-600",
+                          },
+                          {
+                            value: CampaignStatus.completed,
+                            label: "Mark Complete",
+                            color: "text-blue-600",
+                          },
+                          {
+                            value: CampaignStatus.draft,
+                            label: "Move to Draft",
+                            color: "text-slate-500",
+                          },
+                        ].filter((opt) => opt.value !== campaign.status);
+
+                        const statusBadgeClass =
+                          campaign.status === CampaignStatus.active
+                            ? "bg-green-100 text-green-700 hover:bg-green-100"
+                            : campaign.status === CampaignStatus.paused
+                              ? "bg-amber-100 text-amber-700 hover:bg-amber-100"
+                              : campaign.status === CampaignStatus.completed
+                                ? "bg-blue-100 text-blue-700 hover:bg-blue-100"
+                                : "bg-slate-100 text-slate-600 hover:bg-slate-100";
+
                         return (
                           <TableRow
                             key={campaign.id}
                             data-ocid={`admin.campaigns.row.${i + 1}`}
                           >
-                            <TableCell className="font-medium max-w-[200px]">
+                            <TableCell className="font-medium max-w-[180px]">
                               <span className="line-clamp-1 text-sm">
                                 {campaign.title}
+                              </span>
+                              <span className="text-xs text-muted-foreground block">
+                                {formatDate(campaign.deadline)}
                               </span>
                             </TableCell>
                             <TableCell>
@@ -756,27 +835,34 @@ export default function AdminDashboardPage() {
                                 {cat.label}
                               </span>
                             </TableCell>
-                            <TableCell className="text-sm font-medium text-orange-600">
-                              {formatCurrency(campaign.currentAmount, "USD")}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {formatCurrency(campaign.targetAmount, "USD")}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {formatDate(campaign.deadline)}
+                            <TableCell className="min-w-[160px]">
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-xs">
+                                  <span className="font-medium text-orange-600">
+                                    {formatCurrency(
+                                      campaign.currentAmount,
+                                      "USD",
+                                    )}
+                                  </span>
+                                  <span className="text-muted-foreground">
+                                    {formatCurrency(
+                                      campaign.targetAmount,
+                                      "USD",
+                                    )}
+                                  </span>
+                                </div>
+                                <Progress value={progress} className="h-1.5" />
+                                <span className="text-xs text-orange-500 font-semibold">
+                                  {progress}% funded
+                                </span>
+                              </div>
                             </TableCell>
                             <TableCell>
                               <Badge
-                                variant={
-                                  campaign.isActive ? "default" : "secondary"
-                                }
-                                className={
-                                  campaign.isActive
-                                    ? "bg-green-100 text-green-700 hover:bg-green-100"
-                                    : ""
-                                }
+                                variant="secondary"
+                                className={statusBadgeClass}
                               >
-                                {campaign.isActive ? "Active" : "Inactive"}
+                                {campaign.status}
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
@@ -796,24 +882,45 @@ export default function AdminDashboardPage() {
                                   <Edit className="w-3.5 h-3.5" />
                                 </Button>
 
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 w-8 p-0"
-                                  onClick={() => handleToggle(campaign.id)}
-                                  disabled={
-                                    togglingId === campaign.id || isToggling
-                                  }
-                                  data-ocid={`admin.toggle_button.${i + 1}`}
-                                >
-                                  {togglingId === campaign.id ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  ) : campaign.isActive ? (
-                                    <ToggleRight className="w-3.5 h-3.5 text-green-500" />
-                                  ) : (
-                                    <ToggleLeft className="w-3.5 h-3.5 text-muted-foreground" />
-                                  )}
-                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-8 w-8 p-0"
+                                      disabled={
+                                        settingStatusId === campaign.id ||
+                                        isStatusPending
+                                      }
+                                      data-ocid={`admin.campaigns.status_dropdown.${i + 1}`}
+                                    >
+                                      {settingStatusId === campaign.id ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                      ) : (
+                                        <ChevronDown className="w-3.5 h-3.5" />
+                                      )}
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent
+                                    align="end"
+                                    data-ocid={`admin.campaigns.status_menu.${i + 1}`}
+                                  >
+                                    {statusOptions.map((opt) => (
+                                      <DropdownMenuItem
+                                        key={opt.value}
+                                        onClick={() =>
+                                          handleSetStatus(
+                                            campaign.id,
+                                            opt.value,
+                                          )
+                                        }
+                                        className={opt.color}
+                                      >
+                                        {opt.label}
+                                      </DropdownMenuItem>
+                                    ))}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
 
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>

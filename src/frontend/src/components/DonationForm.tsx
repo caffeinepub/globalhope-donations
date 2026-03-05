@@ -187,8 +187,8 @@ export default function DonationForm({ campaign }: Props) {
         donorPhone,
         isAnonymous,
         paymentMethod: {
-          __kind__: "bankTransfer",
-          bankTransfer: { reference: utrNumber.trim() },
+          __kind__: "upi",
+          upi: { utrReference: utrNumber.trim() },
         },
       });
       setUpiSubmitted(true);

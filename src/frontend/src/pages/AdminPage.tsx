@@ -3,6 +3,7 @@ import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Eye, EyeOff, Heart, Loader2, Shield } from "lucide-react";
 import { motion } from "motion/react";
@@ -13,6 +14,7 @@ const ADMIN_PASSWORD = "Ankitasingh7860@@";
 
 export default function AdminPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -39,6 +41,13 @@ export default function AdminPage() {
       ) {
         localStorage.setItem("admin_authenticated", "true");
         localStorage.setItem("admin_email", ADMIN_EMAIL);
+        // Signal that the admin token needs to be initialized on the actor.
+        // useAdminActor watches this via the actor reference change triggered below.
+        localStorage.setItem("admin_token_init_needed", Date.now().toString());
+        // Force actor re-initialization so useAdminActor gets a fresh actor
+        // reference and calls _initializeAccessControlWithSecret on it.
+        queryClient.removeQueries({ queryKey: ["actor"] });
+        queryClient.invalidateQueries({ queryKey: ["actor"] });
         navigate({ to: "/admin/dashboard" });
       } else {
         setError("Invalid email or password.");
